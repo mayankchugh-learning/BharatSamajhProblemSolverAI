@@ -29,15 +29,15 @@ export function ReferralCard() {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/20 dark:to-background border-indigo-100 dark:border-indigo-900/50">
+    <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-background border-orange-100 dark:border-orange-900/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Gift className="text-indigo-500 w-5 h-5" />
-          Referral Program
+          <Gift className="text-orange-500 w-5 h-5" />
+          Refer & Earn
         </CardTitle>
         <CardDescription>
-          Earn free months by inviting friends! You have 
-          <span className="font-bold text-indigo-600 dark:text-indigo-400 mx-1">
+          Invite your friends to the BharatSolve family! You have 
+          <span className="font-bold text-orange-600 dark:text-orange-400 mx-1">
             {profile.freeMonthsEarned} free months
           </span>
           earned.
@@ -45,31 +45,31 @@ export function ReferralCard() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Your Code</label>
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Your Referral Code</label>
           <div className="flex gap-2">
-            <div className="flex-1 bg-background border rounded-md px-3 py-2 font-mono text-center tracking-widest font-bold">
+            <div className="flex-1 bg-background border rounded-md px-3 py-2 font-mono text-center tracking-widest font-bold border-orange-200">
               {profile.referralCode}
             </div>
-            <Button variant="outline" size="icon" onClick={copyCode}>
+            <Button variant="outline" size="icon" onClick={copyCode} className="border-orange-200 text-orange-600">
               <Copy className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
-        <div className="space-y-2 pt-4 border-t border-indigo-100 dark:border-indigo-900/50">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Redeem a Code</label>
+        <div className="space-y-2 pt-4 border-t border-orange-100 dark:border-orange-900/50">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Redeem Friend's Code</label>
           <div className="flex gap-2">
             <Input 
-              placeholder="Enter friend's code" 
+              placeholder="Enter code" 
               value={referralInput}
               onChange={(e) => setReferralInput(e.target.value)}
-              className="bg-background"
+              className="bg-background border-orange-200"
             />
             <Button 
               size="icon" 
               onClick={handleRedeem} 
               disabled={isPending || !referralInput}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-orange-600 hover:bg-orange-700"
             >
               <ArrowRight className="w-4 h-4" />
             </Button>

@@ -69,7 +69,7 @@ export function SubscriptionCard() {
       </CardHeader>
       <CardContent className="space-y-6">
         <ul className="space-y-2">
-          {["Unlimited AI Solutions", "Priority Processing", "Advanced Explanations", "Code Generation"].map((feature) => (
+          {["Unlimited AI Solutions", "Culturally Nuanced Advice", "Family & Career Wisdom", "Priority Support"].map((feature) => (
             <li key={feature} className="flex items-center gap-2 text-sm">
               <div className="bg-primary/10 rounded-full p-1">
                 <Check className="w-3 h-3 text-primary" />
@@ -82,9 +82,9 @@ export function SubscriptionCard() {
         <Button 
           onClick={() => subscribe()} 
           disabled={isPending}
-          className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 shadow-lg shadow-primary/20"
+          className="w-full bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-700 shadow-lg shadow-primary/20"
         >
-          {isPending ? "Processing..." : "Subscribe for $9.99/mo"}
+          {isPending ? "Processing..." : "Subscribe for ₹499/mo"}
         </Button>
         <p className="text-xs text-center text-muted-foreground">
           Cancel anytime. Secure payment processing.

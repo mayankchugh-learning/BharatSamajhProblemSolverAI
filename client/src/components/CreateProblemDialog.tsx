@@ -57,10 +57,10 @@ export function CreateProblemDialog() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-            Ask the AI
+            Ask BharatSolve AI
           </DialogTitle>
           <DialogDescription>
-            Describe your problem in detail. Our AI will analyze it and provide a comprehensive solution.
+            Share your concerns—whether it's family, career, or technical hurdles. Our AI understands the Indian heart and mind.
           </DialogDescription>
         </DialogHeader>
 
@@ -71,9 +71,9 @@ export function CreateProblemDialog() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Problem Title</FormLabel>
+                  <FormLabel>What's on your mind?</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Fix React hydration error" {...field} className="bg-background/50" />
+                    <Input placeholder="e.g., How to balance joint family expectations with career?" {...field} className="bg-background/50" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -85,10 +85,10 @@ export function CreateProblemDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Detailed Description</FormLabel>
+                  <FormLabel>Explain in your own words</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder="Paste code snippets, context, or detailed questions here..." 
+                      placeholder="Tell us the full story. We're listening with an open heart..." 
                       className="min-h-[150px] bg-background/50 resize-none"
                       {...field} 
                     />
