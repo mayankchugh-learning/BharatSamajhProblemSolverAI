@@ -1,7 +1,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { useDocumentHead } from "@/hooks/use-document-head";
 
 export default function NotFound() {
+  useDocumentHead({
+    title: "Page Not Found",
+    description: "The page you're looking for doesn't exist on BharatSolve AI.",
+    noIndex: true,
+  });
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md mx-4">
@@ -12,7 +19,7 @@ export default function NotFound() {
           </div>
 
           <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+            The page you're looking for doesn't exist. Head back to <a href="/" className="text-primary hover:underline">BharatSolve AI</a>.
           </p>
         </CardContent>
       </Card>

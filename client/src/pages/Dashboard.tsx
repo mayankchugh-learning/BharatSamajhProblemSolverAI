@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { LogOut, LayoutDashboard, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
+import { useDocumentHead } from "@/hooks/use-document-head";
 
 export default function Dashboard() {
+  useDocumentHead({
+    title: "Dashboard",
+    description: "Your BharatSolve AI dashboard — manage problems, get AI solutions, and track your subscription.",
+    canonicalPath: "/",
+    noIndex: true,
+  });
   const { user, logout } = useAuth();
   const { data: problems, isLoading } = useProblems();
 

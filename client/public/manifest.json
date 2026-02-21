@@ -1,0 +1,23 @@
+{
+  "name": "BharatSolve AI — Indian Wisdom & AI Problem Solver",
+  "short_name": "BharatSolve",
+  "description": "Solve life's challenges with culturally aware AI. Family, career, social — in 12 Indian languages.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFAF5",
+  "theme_color": "#E8751A",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-IN",
+  "categories": ["lifestyle", "education", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

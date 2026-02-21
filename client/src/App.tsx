@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
+import ProblemDetail from "@/pages/ProblemDetail";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
@@ -35,6 +36,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/problems/:id">
+        {(params) => <ProblemDetail id={params.id} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

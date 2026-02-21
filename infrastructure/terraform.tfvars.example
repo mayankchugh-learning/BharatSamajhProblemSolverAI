@@ -1,0 +1,29 @@
+# ── Copy this to terraform.tfvars and fill in your values ──
+
+aws_region   = "ap-south-1"
+project_name = "bharatsolve"
+environment  = "prod"
+
+# ── ECS Fargate ──
+ecs_cpu           = 256   # 0.25 vCPU (minimum for cost savings)
+ecs_memory        = 512   # 512 MB
+ecs_desired_count = 2     # 2 tasks for high availability
+ecs_min_count     = 2
+ecs_max_count     = 10
+
+# ── RDS PostgreSQL ──
+db_instance_class    = "db.t3.micro"  # Minimum for resilience
+db_allocated_storage = 20             # 20 GB
+db_multi_az          = false          # Set to true for production HA
+
+# ── Application ──
+docker_image_tag = "latest"
+base_url         = "https://bharatsolve.ai"
+openai_model     = "gpt-4o-mini"
+
+# ── SSL (required for HTTPS) ──
+# Create a certificate in ACM first, then paste the ARN here
+# certificate_arn = "arn:aws:acm:ap-south-1:123456789:certificate/abc-123"
+
+# ── Domain (optional, uses ALB DNS if empty) ──
+# domain_name = "bharatsolve.ai"

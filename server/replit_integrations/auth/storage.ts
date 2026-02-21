@@ -1,15 +1,36 @@
 import { users, type User, type UpsertUser } from "@shared/models/auth";
-import { db } from "../../db";
+import { isUsingDatabase, db } from "../../db";
 import { eq } from "drizzle-orm";
 
-// Interface for auth storage operations
-// (IMPORTANT) These user operations are mandatory for Replit Auth.
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 }
 
-class AuthStorage implements IAuthStorage {
+class MemoryAuthStorage implements IAuthStorage {
+  private users: Map<string, User> = new Map();
+
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existing = userData.id ? this.users.get(userData.id) : undefined;
+    const user: User = {
+      id: userData.id ?? crypto.randomUUID(),
+      email: userData.email ?? existing?.email ?? null,
+      firstName: userData.firstName ?? existing?.firstName ?? null,
+      lastName: userData.lastName ?? existing?.lastName ?? null,
+      profileImageUrl: userData.profileImageUrl ?? existing?.profileImageUrl ?? null,
+      createdAt: existing?.createdAt ?? new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+}
+
+class DatabaseAuthStorage implements IAuthStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -31,4 +52,6 @@ class AuthStorage implements IAuthStorage {
   }
 }
 
-export const authStorage = new AuthStorage();
+export const authStorage: IAuthStorage = isUsingDatabase
+  ? new DatabaseAuthStorage()
+  : new MemoryAuthStorage();

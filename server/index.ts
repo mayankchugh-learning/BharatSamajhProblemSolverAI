@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupSecurityMiddleware } from "./middleware/security";
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,15 +13,18 @@ declare module "http" {
   }
 }
 
+setupSecurityMiddleware(app);
+
 app.use(
   express.json({
+    limit: "1mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -64,13 +68,18 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
 
     console.error("Internal Server Error:", err);
 
     if (res.headersSent) {
       return next(err);
     }
+
+    const isProduction = process.env.NODE_ENV === "production";
+    const message =
+      isProduction && status === 500
+        ? "Internal Server Error"
+        : err.message || "Internal Server Error";
 
     return res.status(status).json({ message });
   });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProblemSchema, problems, userProfiles } from './schema';
+import { insertProblemSchema, insertDiscussionMessageSchema, problems, userProfiles, discussionMessages } from './schema';
 
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
@@ -34,6 +34,29 @@ export const api = {
       path: '/api/problems/:id' as const,
       responses: {
         200: z.custom<typeof problems.$inferSelect>(),
+        401: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
+    listMessages: {
+      method: 'GET' as const,
+      path: '/api/problems/:id/messages' as const,
+      responses: {
+        200: z.array(z.custom<typeof discussionMessages.$inferSelect>()),
+        401: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
+    sendMessage: {
+      method: 'POST' as const,
+      path: '/api/problems/:id/messages' as const,
+      input: insertDiscussionMessageSchema,
+      responses: {
+        201: z.object({
+          userMessage: z.custom<typeof discussionMessages.$inferSelect>(),
+          aiMessage: z.custom<typeof discussionMessages.$inferSelect>(),
+        }),
+        400: errorSchemas.validation,
         401: errorSchemas.unauthorized,
         404: errorSchemas.notFound,
       },

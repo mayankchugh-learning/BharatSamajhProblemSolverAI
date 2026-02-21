@@ -4,3 +4,15 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.env
+.env.local
+uploads/
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.backup
+infrastructure/*.tfvars
+!infrastructure/terraform.tfvars.example
+!infrastructure/environments/*.tfvars
+infrastructure/.terraform.lock.hcl

@@ -1,0 +1,12 @@
+# BharatSolve AI — robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /problems/
+
+# Sitemap
+Sitemap: https://bharatsolve.ai/sitemap.xml
+
+# Crawl-delay for polite crawling
+User-agent: Bingbot
+Crawl-delay: 5

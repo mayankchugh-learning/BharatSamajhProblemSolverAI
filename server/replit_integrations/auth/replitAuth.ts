@@ -6,7 +6,13 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
+import MemoryStore from "memorystore";
 import { authStorage } from "./storage";
+
+const isDevMode = !process.env.REPL_ID;
+const isUsingDatabase = !!process.env.DATABASE_URL;
+
+const DEV_USER_ID = "dev-user-001";
 
 const getOidcConfig = memoize(
   async () => {
@@ -20,22 +26,41 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
+  const secret = process.env.SESSION_SECRET;
+
+  if (!secret && !isDevMode) {
+    console.error(
+      "[security] SESSION_SECRET is not set! This is a critical security risk in production."
+    );
+    process.exit(1);
+  }
+
+  let store: session.Store;
+  if (isUsingDatabase) {
+    const pgStore = connectPg(session);
+    store = new pgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      ttl: sessionTtl,
+      tableName: "sessions",
+    });
+  } else {
+    const MemStore = MemoryStore(session);
+    store = new MemStore({ checkPeriod: sessionTtl });
+  }
+
   return session({
-    secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
+    secret: secret || "dev-secret-local-only",
+    name: "__bsai_sid",
+    store,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: !isDevMode,
+      sameSite: isDevMode ? "lax" : "strict",
       maxAge: sessionTtl,
+      path: "/",
     },
   });
 }
@@ -60,12 +85,38 @@ async function upsertUser(claims: any) {
   });
 }
 
-export async function setupAuth(app: Express) {
-  app.set("trust proxy", 1);
-  app.use(getSession());
-  app.use(passport.initialize());
-  app.use(passport.session());
+async function setupDevAuth(app: Express) {
+  await authStorage.upsertUser({
+    id: DEV_USER_ID,
+    email: "dev@bharatsolve.local",
+    firstName: "Dev",
+    lastName: "User",
+    profileImageUrl: null,
+  });
 
+  app.get("/api/login", async (req, res) => {
+    const devUser = {
+      claims: {
+        sub: DEV_USER_ID,
+        email: "dev@bharatsolve.local",
+        first_name: "Dev",
+        last_name: "User",
+      },
+      expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+    };
+    (req as any).login(devUser, () => {
+      res.redirect("/");
+    });
+  });
+
+  app.get("/api/callback", (_req, res) => res.redirect("/"));
+
+  app.get("/api/logout", (req, res) => {
+    req.logout(() => res.redirect("/"));
+  });
+}
+
+async function setupOidcAuth(app: Express) {
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -78,10 +129,8 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  // Keep track of registered strategies
   const registeredStrategies = new Set<string>();
 
-  // Helper function to ensure strategy exists for a domain
   const ensureStrategy = (domain: string) => {
     const strategyName = `replitauth:${domain}`;
     if (!registeredStrategies.has(strategyName)) {
@@ -98,9 +147,6 @@ export async function setupAuth(app: Express) {
       registeredStrategies.add(strategyName);
     }
   };
-
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
@@ -130,6 +176,23 @@ export async function setupAuth(app: Express) {
   });
 }
 
+export async function setupAuth(app: Express) {
+  app.set("trust proxy", 1);
+  app.use(getSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  if (isDevMode) {
+    console.log("[auth] Running in DEV mode — auto-login via /api/login");
+    await setupDevAuth(app);
+  } else {
+    await setupOidcAuth(app);
+  }
+}
+
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
@@ -140,6 +203,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
     return next();
+  }
+
+  if (isDevMode) {
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   const refreshToken = user.refresh_token;

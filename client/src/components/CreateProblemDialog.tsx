@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertProblemSchema, type InsertProblem } from "@shared/schema";
+import { insertProblemSchema, type InsertProblem, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@shared/schema";
 import { useCreateProblem } from "@/hooks/use-problems";
 import {
   Dialog,
@@ -18,10 +18,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, Plus } from "lucide-react";
+import { Loader2, Sparkles, Plus, Globe } from "lucide-react";
 import { useState } from "react";
 
 export function CreateProblemDialog() {
@@ -33,6 +40,7 @@ export function CreateProblemDialog() {
     defaultValues: {
       title: "",
       description: "",
+      language: "english",
     },
   });
 
@@ -66,6 +74,41 @@ export function CreateProblemDialog() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+            <FormField
+              control={form.control}
+              name="language"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-primary" />
+                    Response Language
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-background/50">
+                        <SelectValue placeholder="Choose language" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="max-h-[280px]">
+                      {(Object.entries(SUPPORTED_LANGUAGES) as [SupportedLanguage, typeof SUPPORTED_LANGUAGES[SupportedLanguage]][]).map(
+                        ([key, lang]) => (
+                          <SelectItem key={key} value={key}>
+                            <span className="flex items-center gap-2">
+                              <span className="font-medium">{lang.nativeLabel}</span>
+                              {lang.nativeLabel !== lang.label && (
+                                <span className="text-muted-foreground text-xs">({lang.label})</span>
+                              )}
+                            </span>
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="title"
