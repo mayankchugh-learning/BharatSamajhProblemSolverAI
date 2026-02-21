@@ -78,7 +78,7 @@ export async function registerRoutes(
       const response = await openai.chat.completions.create({
         model: "gpt-5.1",
         messages: [
-          { role: "system", content: "You are a helpful expert problem solver. Provide a clear, actionable solution to the user's problem." },
+          { role: "system", content: "You are an empathetic Indian expert problem solver. Understand the cultural nuances, family dynamics, and social context of India. Provide clear, actionable, and emotionally resonant solutions that respect Indian values while being modern and practical." },
           { role: "user", content: `Title: ${input.title}\nDescription: ${input.description}` }
         ]
       });

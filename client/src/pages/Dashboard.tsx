@@ -21,7 +21,7 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-display font-bold text-2xl text-primary">
             <LayoutDashboard className="w-6 h-6" />
-            <span>SolveAI</span>
+            <span>BharatSolve</span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -52,8 +52,8 @@ export default function Dashboard() {
           <div className="lg:col-span-8 space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Your Problems</h1>
-                <p className="text-muted-foreground mt-1">Submit technical challenges and get instant AI solutions.</p>
+                <h1 className="text-3xl font-bold tracking-tight">Namaste, {user?.firstName || 'Dost'}</h1>
+                <p className="text-muted-foreground mt-1">Share your heart's concerns or technical hurdles. We're here for you.</p>
               </div>
               <CreateProblemDialog />
             </div>

@@ -14,7 +14,7 @@ export default function Landing() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-display font-bold text-2xl text-primary">
             <Brain className="w-8 h-8" />
-            <span>SolveAI</span>
+            <span>BharatSolve AI</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="#features" className="text-sm font-medium hover:text-primary hidden md:block">Features</a>
@@ -43,11 +43,12 @@ export default function Landing() {
               New: GPT-4o Integration Available
             </span>
             <h1 className="text-5xl md:text-7xl font-display font-bold tracking-tight mb-6">
-              Solve Complex Problems <br/>
-              <span className="premium-text-gradient">with AI Precision</span>
+              Solve Life's Challenges <br/>
+              <span className="premium-text-gradient">With Indian Wisdom & AI</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Submit your toughest challenges and get instant, accurate solutions powered by next-gen AI. 
+              From family dynamics to career growth in the modern Indian landscape. 
+              Get solutions that understand your emotions and culture.
               Start your free 1-month trial today.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -76,9 +77,9 @@ export default function Landing() {
       {/* Social Proof */}
       <section className="py-12 border-y bg-muted/30">
         <div className="container mx-auto px-4">
-          <p className="text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-8">Trusted by innovators at</p>
+          <p className="text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-8">Trusted by users from</p>
           <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            {['Acme Corp', 'GlobalTech', 'Nebula', 'FoxRun', 'Circle'].map((brand) => (
+            {['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata'].map((brand) => (
               <span key={brand} className="text-xl font-display font-bold">{brand}</span>
             ))}
           </div>
@@ -89,26 +90,26 @@ export default function Landing() {
       <section id="features" className="py-24">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose SolveAI?</h2>
-            <p className="text-muted-foreground text-lg">We combine advanced algorithms with intuitive design to help you solve problems faster.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why BharatSolve?</h2>
+            <p className="text-muted-foreground text-lg">We understand the heartbeat of India. Our AI is trained on local context and emotional intelligence.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <Zap className="w-6 h-6 text-yellow-500" />,
-                title: "Instant Solutions",
-                desc: "Get answers in seconds, not hours. Our AI processes complex queries instantly."
+                icon: <Zap className="w-6 h-6 text-orange-500" />,
+                title: "Culturally Aware",
+                desc: "Solutions that respect Indian traditions, family values, and modern social dynamics."
               },
               {
-                icon: <Shield className="w-6 h-6 text-blue-500" />,
-                title: "Secure & Private",
-                desc: "Your data is encrypted and never shared. We prioritize your privacy above all."
+                icon: <Shield className="w-6 h-6 text-blue-600" />,
+                title: "Deeply Empathetic",
+                desc: "We don't just give answers; we understand the emotional weight of your struggles."
               },
               {
-                icon: <Users className="w-6 h-6 text-purple-500" />,
-                title: "Community Driven",
-                desc: "Join thousands of solvers. Share solutions and learn from the community."
+                icon: <Users className="w-6 h-6 text-green-600" />,
+                title: "Community Spirit",
+                desc: "Join a growing family of Indians solving problems together with AI assistance."
               }
             ].map((feature, i) => (
               <div key={i} className="p-6 rounded-2xl border bg-card hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
