@@ -1,5 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, text, serial, integer, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8,6 +7,27 @@ export * from "./models/auth";
 export * from "./models/chat";
 
 import { users } from "./models/auth";
+
+import { LOCALE_CONFIGS } from "./locales";
+
+export const PROBLEM_CATEGORIES = {
+  education: { label: "Education & Learning", icon: "GraduationCap" },
+  law: { label: "Law & Legal", icon: "Scale" },
+  health: { label: "Health & Medical", icon: "HeartPulse" },
+  finance: { label: "Finance & Business", icon: "Banknote" },
+  career: { label: "Career & Employment", icon: "Briefcase" },
+  family: { label: "Family & Relationships", icon: "Users" },
+  technology: { label: "Technology & IT", icon: "Cpu" },
+  government: { label: "Government & Public Services", icon: "Building2" },
+  housing: { label: "Housing & Property", icon: "Home" },
+  mental_wellness: { label: "Mental Wellness", icon: "Brain" },
+  other: { label: "Other / General", icon: "HelpCircle" },
+} as const;
+
+export type ProblemCategory = keyof typeof PROBLEM_CATEGORIES;
+
+const ALL_CATEGORY_KEYS = Object.keys(PROBLEM_CATEGORIES) as [string, ...string[]];
+export const problemCategorySchema = z.enum(ALL_CATEGORY_KEYS as [ProblemCategory, ...ProblemCategory[]]);
 
 export const SUPPORTED_LANGUAGES = {
   english: { label: "English", nativeLabel: "English", greeting: "Hello" },
@@ -22,14 +42,36 @@ export const SUPPORTED_LANGUAGES = {
   malayalam: { label: "Malayalam", nativeLabel: "മലയാളം", greeting: "നമസ്കാരം" },
   punjabi: { label: "Punjabi", nativeLabel: "ਪੰਜਾਬੀ", greeting: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ" },
   odia: { label: "Odia", nativeLabel: "ଓଡ଼ିଆ", greeting: "ନମସ୍କାର" },
+  mandarin: { label: "Mandarin", nativeLabel: "中文", greeting: "你好" },
+  mandarin_simplified: { label: "Mandarin (Simplified)", nativeLabel: "简体中文", greeting: "你好" },
+  malay: { label: "Malay", nativeLabel: "Bahasa Melayu", greeting: "Selamat" },
+  singlish: { label: "Singlish", nativeLabel: "Singlish", greeting: "Eh hello lah" },
+  cantonese: { label: "Cantonese", nativeLabel: "廣東話", greeting: "你好" },
+  japanese: { label: "Japanese", nativeLabel: "日本語", greeting: "こんにちは" },
+  korean: { label: "Korean", nativeLabel: "한국어", greeting: "안녕하세요" },
+  spanish: { label: "Spanish", nativeLabel: "Español", greeting: "Hola" },
+  arabic: { label: "Arabic", nativeLabel: "العربية", greeting: "مرحبا" },
+  german: { label: "German", nativeLabel: "Deutsch", greeting: "Hallo" },
+  portuguese: { label: "Portuguese", nativeLabel: "Português", greeting: "Olá" },
 } as const;
 
 export type SupportedLanguage = keyof typeof SUPPORTED_LANGUAGES;
 
-export const supportedLanguageSchema = z.enum([
-  "english", "hindi", "hinglish", "tamil", "telugu", "bengali",
-  "marathi", "gujarati", "kannada", "malayalam", "punjabi", "odia",
-]);
+const ALL_LANGUAGE_KEYS = Object.keys(SUPPORTED_LANGUAGES) as [string, ...string[]];
+
+export const supportedLanguageSchema = z.enum(ALL_LANGUAGE_KEYS as [SupportedLanguage, ...SupportedLanguage[]]);
+
+export function getLanguagesForLocale(localeCode: string): Record<string, typeof SUPPORTED_LANGUAGES[SupportedLanguage]> {
+  const localeConfig = LOCALE_CONFIGS[localeCode as keyof typeof LOCALE_CONFIGS];
+  if (!localeConfig) return SUPPORTED_LANGUAGES;
+  const result: Record<string, typeof SUPPORTED_LANGUAGES[SupportedLanguage]> = {};
+  for (const key of Object.keys(localeConfig.languages)) {
+    if (key in SUPPORTED_LANGUAGES) {
+      result[key] = SUPPORTED_LANGUAGES[key as SupportedLanguage];
+    }
+  }
+  return result;
+}
 
 export const problems = pgTable("problems", {
   id: serial("id").primaryKey(),
@@ -37,6 +79,7 @@ export const problems = pgTable("problems", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   language: text("language").default("english").notNull(),
+  category: text("category").default("other").notNull(),
   solution: text("solution"),
   status: text("status").default('pending').notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -61,12 +104,38 @@ export const discussionMessages = pgTable("discussion_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const feedback = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  rating: integer("rating").notNull(),
+  category: text("category").notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFeedbackSchema = createInsertSchema(feedback).pick({
+  rating: true,
+  category: true,
+  message: true,
+}).extend({
+  rating: z.number().min(1, "Please select a rating").max(5),
+  category: z.enum(["general", "bug", "feature", "improvement", "other"], {
+    required_error: "Please select a category",
+  }),
+  message: z.string().min(10, "Feedback must be at least 10 characters").max(2000),
+});
+
+export type Feedback = typeof feedback.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+
 export const insertProblemSchema = createInsertSchema(problems).pick({
   title: true,
   description: true,
   language: true,
+  category: true,
 }).extend({
   language: supportedLanguageSchema.default("english"),
+  category: problemCategorySchema.default("other"),
 });
 
 export const attachmentSchema = z.object({

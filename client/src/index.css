@@ -92,11 +92,12 @@
   }
 
   .premium-gradient {
-    @apply bg-gradient-to-br from-orange-500 via-white to-green-600;
+    background: linear-gradient(to bottom right, hsl(var(--primary)), white, hsl(var(--secondary)));
   }
   
   .premium-text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-blue-700 to-green-700 dark:from-orange-400 dark:via-blue-400 dark:to-green-400;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--secondary)));
   }
 }
 

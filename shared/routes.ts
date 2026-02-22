@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProblemSchema, insertDiscussionMessageSchema, problems, userProfiles, discussionMessages } from './schema';
+import { insertProblemSchema, insertDiscussionMessageSchema, insertFeedbackSchema, problems, userProfiles, discussionMessages, feedback } from './schema';
 
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
@@ -89,7 +89,19 @@ export const api = {
         401: errorSchemas.unauthorized,
       }
     }
-  }
+  },
+  feedback: {
+    submit: {
+      method: 'POST' as const,
+      path: '/api/feedback' as const,
+      input: insertFeedbackSchema,
+      responses: {
+        201: z.custom<typeof feedback.$inferSelect>(),
+        400: errorSchemas.validation,
+        401: errorSchemas.unauthorized,
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

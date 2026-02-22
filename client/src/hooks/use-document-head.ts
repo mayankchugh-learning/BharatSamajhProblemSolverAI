@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocale } from "@/contexts/locale-context";
 
 interface DocumentHeadOptions {
   title?: string;
@@ -10,9 +11,6 @@ interface DocumentHeadOptions {
   ogType?: string;
   noIndex?: boolean;
 }
-
-const BASE_TITLE = "BharatSolve AI";
-const BASE_URL = "https://bharatsolve.ai";
 
 function setMetaTag(property: string, content: string, isProperty = false) {
   const attr = isProperty ? "property" : "name";
@@ -36,6 +34,10 @@ function setCanonical(href: string) {
 }
 
 export function useDocumentHead(options: DocumentHeadOptions) {
+  const { config } = useLocale();
+  const baseTitle = config.appName;
+  const baseUrl = `https://${config.domain}`;
+
   useEffect(() => {
     const {
       title,
@@ -48,7 +50,7 @@ export function useDocumentHead(options: DocumentHeadOptions) {
       noIndex = false,
     } = options;
 
-    const fullTitle = title ? `${title} | ${BASE_TITLE}` : `${BASE_TITLE} — Solve Life's Challenges With Indian Wisdom & AI`;
+    const fullTitle = title ? `${title} | ${baseTitle}` : `${baseTitle} — ${config.tagline}`;
     document.title = fullTitle;
 
     if (description) {
@@ -61,12 +63,13 @@ export function useDocumentHead(options: DocumentHeadOptions) {
       setMetaTag("robots", "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1");
     }
 
-    setCanonical(`${BASE_URL}${canonicalPath}`);
+    setCanonical(`${baseUrl}${canonicalPath}`);
 
     setMetaTag("og:title", ogTitle || fullTitle, true);
     setMetaTag("og:description", ogDescription || description || "", true);
-    setMetaTag("og:url", `${BASE_URL}${canonicalPath}`, true);
+    setMetaTag("og:url", `${baseUrl}${canonicalPath}`, true);
     setMetaTag("og:type", ogType, true);
+    setMetaTag("og:locale", config.ogLocale, true);
     if (ogImage) {
       setMetaTag("og:image", ogImage, true);
     }
@@ -76,5 +79,5 @@ export function useDocumentHead(options: DocumentHeadOptions) {
     if (ogImage) {
       setMetaTag("twitter:image", ogImage);
     }
-  }, [options.title, options.description, options.canonicalPath]);
+  }, [options.title, options.description, options.canonicalPath, options.ogTitle, options.ogDescription, options.ogImage, options.ogType, options.noIndex, config.code]);
 }

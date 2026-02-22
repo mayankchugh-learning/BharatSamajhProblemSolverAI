@@ -3,21 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Zap, Crown, Clock } from "lucide-react";
 import { useProfile, useSubscribe } from "@/hooks/use-profile";
-import { motion } from "framer-motion";
+import { useLocale } from "@/contexts/locale-context";
 
 export function SubscriptionCard() {
   const { data: profile } = useProfile();
   const { mutate: subscribe, isPending } = useSubscribe();
+  const { config } = useLocale();
 
   if (!profile) return null;
 
   const isActive = profile.subscriptionStatus === 'active';
   const isTrial = profile.subscriptionStatus === 'trial';
   
-  // Calculate days left in trial if applicable
-  const trialEnd = new Date(profile.trialStartDate);
+  const trialStart = profile.trialStartDate ? new Date(profile.trialStartDate) : new Date();
+  const trialEnd = new Date(trialStart);
   trialEnd.setMonth(trialEnd.getMonth() + 1);
-  const daysLeft = Math.ceil((trialEnd.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+  const daysLeft = Math.max(0, Math.ceil((trialEnd.getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
 
   if (isActive) {
     return (
@@ -82,9 +83,9 @@ export function SubscriptionCard() {
         <Button 
           onClick={() => subscribe()} 
           disabled={isPending}
-          className="w-full bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-700 shadow-lg shadow-primary/20"
+          className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/20"
         >
-          {isPending ? "Processing..." : "Subscribe for ₹499/mo"}
+          {isPending ? "Processing..." : `Subscribe for ${config.formattedPrice}/mo`}
         </Button>
         <p className="text-xs text-center text-muted-foreground">
           Cancel anytime. Secure payment processing.

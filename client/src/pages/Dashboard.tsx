@@ -5,17 +5,23 @@ import { CreateProblemDialog } from "@/components/CreateProblemDialog";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { ReferralCard } from "@/components/ReferralCard";
 import { Advertisement } from "@/components/Advertisement";
+import { AccountActions } from "@/components/AccountActions";
 import { BrandLogo } from "@/components/BrandLogo";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { useDocumentHead } from "@/hooks/use-document-head";
+import { useLocale } from "@/contexts/locale-context";
 
 export default function Dashboard() {
+  const { config } = useLocale();
+
   useDocumentHead({
     title: "Dashboard",
-    description: "Your BharatSolve AI dashboard — manage problems, get AI solutions, and track your subscription.",
+    description: `Your ${config.appName} dashboard — manage problems, get AI solutions, and track your subscription.`,
     canonicalPath: "/",
     noIndex: true,
   });
@@ -30,6 +36,8 @@ export default function Dashboard() {
           <BrandLogo />
           
           <div className="flex items-center gap-4">
+            <FeedbackDialog />
+            <ThemeToggle />
             <div className="flex items-center gap-3 mr-4">
               <Avatar className="w-8 h-8 border border-border">
                 <AvatarImage src={user?.profileImageUrl || undefined} />
@@ -57,8 +65,10 @@ export default function Dashboard() {
           <div className="lg:col-span-8 space-y-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Namaste, {user?.firstName || 'Dost'}</h1>
-                <p className="text-muted-foreground mt-1">Share your heart's concerns or technical hurdles. We're here for you.</p>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {config.dashboardGreeting(user?.firstName || 'Friend')}
+                </h1>
+                <p className="text-muted-foreground mt-1">{config.dashboardSubtitle}</p>
               </div>
               <CreateProblemDialog />
             </div>
@@ -96,11 +106,12 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Sidebar - Stats & Promo */}
+          {/* Sidebar */}
           <div className="lg:col-span-4 space-y-6">
             <SubscriptionCard />
             <ReferralCard />
             <Advertisement />
+            <AccountActions />
           </div>
         </div>
       </main>

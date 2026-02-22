@@ -2,8 +2,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useProblem } from "@/hooks/use-problems";
 import { useDiscussionMessages, useSendMessage } from "@/hooks/use-discussion";
 import { useDocumentHead } from "@/hooks/use-document-head";
+import { useLocale } from "@/contexts/locale-context";
 import { SocialShare } from "@/components/SocialShare";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,13 +24,12 @@ import {
   Paperclip,
   X,
   FileText,
-  Image as ImageIcon,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { type DiscussionMessage, type Attachment, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@shared/schema";
+import { type DiscussionMessage, type Attachment, SUPPORTED_LANGUAGES, PROBLEM_CATEGORIES, type SupportedLanguage, type ProblemCategory } from "@shared/schema";
 
 interface ProblemDetailProps {
   id: string;
@@ -165,11 +166,14 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
   const problemId = Number(id);
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const { config } = useLocale();
   const { data: problem, isLoading: problemLoading } = useProblem(problemId);
   const { data: messages, isLoading: messagesLoading } = useDiscussionMessages(problemId);
   const sendMessage = useSendMessage(problemId);
   const [input, setInput] = useState("");
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const pendingFilesRef = useRef<PendingFile[]>([]);
+  pendingFilesRef.current = pendingFiles;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,7 +181,7 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
 
   useDocumentHead({
     title: problem?.title || "Problem Detail",
-    description: problem?.description?.slice(0, 155) || "View AI-powered solution for your problem on BharatSolve AI.",
+    description: problem?.description?.slice(0, 155) || `View AI-powered solution for your problem on ${config.appName}.`,
     canonicalPath: `/problems/${id}`,
     noIndex: true,
   });
@@ -192,7 +196,7 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
 
   useEffect(() => {
     return () => {
-      pendingFiles.forEach((pf) => {
+      pendingFilesRef.current.forEach((pf) => {
         if (pf.preview) URL.revokeObjectURL(pf.preview);
       });
     };
@@ -223,9 +227,21 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
     if ((!trimmed && pendingFiles.length === 0) || sendMessage.isPending) return;
 
     const files = pendingFiles.map((pf) => pf.file);
+    const savedInput = trimmed;
+    const savedFiles = [...pendingFiles];
+
     setInput("");
     setPendingFiles([]);
-    sendMessage.mutate({ content: trimmed, files: files.length > 0 ? files : undefined });
+
+    sendMessage.mutate(
+      { content: savedInput, files: files.length > 0 ? files : undefined },
+      {
+        onError: () => {
+          setInput(savedInput);
+          setPendingFiles(savedFiles);
+        },
+      }
+    );
 
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -268,6 +284,8 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
   const isSolved = problem.status === "solved" && problem.solution;
   const langKey = (problem.language || "english") as SupportedLanguage;
   const langInfo = SUPPORTED_LANGUAGES[langKey];
+  const categoryKey = (problem.category || "other") as ProblemCategory;
+  const categoryInfo = PROBLEM_CATEGORIES[categoryKey];
   const canSend = (input.trim().length > 0 || pendingFiles.length > 0) && !sendMessage.isPending;
 
   return (
@@ -307,6 +325,14 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
                   Pending
                 </Badge>
               )}
+              {categoryKey !== "other" && categoryInfo && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 h-4 font-normal"
+                >
+                  {categoryInfo.label}
+                </Badge>
+              )}
               {langKey !== "english" && langInfo && (
                 <Badge
                   variant="secondary"
@@ -324,10 +350,11 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
               </span>
             </div>
           </div>
+          <ThemeToggle />
           <SocialShare
-            title={`BharatSolve AI helped me solve: ${problem.title}`}
-            description="Get AI-powered solutions for life's challenges — culturally aware & in 12 Indian languages!"
-            url="https://bharatsolve.ai"
+            title={`${config.appName} helped me solve: ${problem.title}`}
+            description={config.shareDescription}
+            url={`https://${config.domain}`}
             variant="ghost"
             size="icon"
           />

@@ -1,8 +1,8 @@
 import { Card, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { type Problem, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@shared/schema";
+import { type Problem, SUPPORTED_LANGUAGES, PROBLEM_CATEGORIES, type SupportedLanguage, type ProblemCategory } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
-import { CheckCircle2, Clock, MessageSquare, Globe } from "lucide-react";
+import { CheckCircle2, Clock, MessageSquare, Globe, Tag } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface ProblemCardProps {
@@ -14,12 +14,22 @@ export function ProblemCard({ problem }: ProblemCardProps) {
   const isSolved = problem.status === 'solved' && problem.solution;
   const langKey = (problem.language || "english") as SupportedLanguage;
   const langInfo = SUPPORTED_LANGUAGES[langKey];
+  const categoryKey = (problem.category || "other") as ProblemCategory;
+  const categoryInfo = PROBLEM_CATEGORIES[categoryKey];
 
   return (
     <Card
-      className="cursor-pointer group hover:shadow-lg transition-all duration-300 border-l-4 hover:border-l-primary data-[solved=true]:border-l-green-500"
+      className="cursor-pointer group hover:shadow-lg transition-all duration-300 border-l-4 hover:border-l-primary data-[solved=true]:border-l-green-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       data-solved={isSolved}
+      tabIndex={0}
+      role="button"
       onClick={() => navigate(`/problems/${problem.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(`/problems/${problem.id}`);
+        }
+      }}
     >
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start gap-4">
@@ -45,6 +55,12 @@ export function ProblemCard({ problem }: ProblemCardProps) {
       <CardFooter className="pt-0 text-xs text-muted-foreground flex justify-between items-center">
         <div className="flex items-center gap-2">
           <span>{problem.createdAt ? formatDistanceToNow(new Date(problem.createdAt), { addSuffix: true }) : 'Just now'}</span>
+          {categoryKey !== "other" && categoryInfo && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+              <Tag className="w-2.5 h-2.5 mr-0.5" />
+              {categoryInfo.label}
+            </Badge>
+          )}
           {langKey !== "english" && langInfo && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">
               <Globe className="w-2.5 h-2.5 mr-0.5" />

@@ -45,7 +45,7 @@ export function setupSecurityMiddleware(app: Express): void {
         : true,
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
       maxAge: 600,
     })
   );
@@ -114,12 +114,8 @@ function validateContentType(req: Request, res: Response, next: NextFunction): v
 const SUSPICIOUS_PATTERNS = [
   /(<script[\s>])/i,
   /(javascript\s*:)/i,
-  /(on\w+\s*=\s*["'])/i,
   /(\.\.\/(\.\.\/)+)/,
   /(\/etc\/passwd)/i,
-  /(union\s+select)/i,
-  /(;\s*drop\s+table)/i,
-  /(;\s*delete\s+from)/i,
   /(<iframe[\s>])/i,
 ];
 
@@ -152,18 +148,4 @@ export function sanitizeString(input: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
-}
-
-export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
-  const sanitized: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      sanitized[key] = sanitizeString(value);
-    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      sanitized[key] = sanitizeObject(value as Record<string, unknown>);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  return sanitized as T;
 }

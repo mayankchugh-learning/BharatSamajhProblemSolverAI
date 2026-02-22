@@ -35,10 +35,6 @@ export function useCreateProblem() {
 
   return useMutation({
     mutationFn: async (data: InsertProblem) => {
-      // Simulate slight delay for AI "thinking" effect if backend is too fast
-      // const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-      // await delay(1500); 
-      
       const res = await fetch(api.problems.create.path, {
         method: api.problems.create.method,
         headers: { "Content-Type": "application/json" },

@@ -32,7 +32,7 @@ The app runs out of the box with **no database, no API keys, and no auth provide
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/BharatSamajhProblemSolverAI.git
+git clone https://github.com/mayankchugh-learning/BharatSamajhProblemSolverAI.git
 cd BharatSamajhProblemSolverAI
 
 # 2. Install dependencies

@@ -9,7 +9,7 @@ import connectPg from "connect-pg-simple";
 import MemoryStore from "memorystore";
 import { authStorage } from "./storage";
 
-const isDevMode = !process.env.REPL_ID;
+const isDevMode = process.env.NODE_ENV !== "production";
 const isUsingDatabase = !!process.env.DATABASE_URL;
 
 const DEV_USER_ID = "dev-user-001";
@@ -182,8 +182,12 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.serializeUser((user: any, cb) => {
+    cb(null, { sub: user.claims?.sub, expires_at: user.expires_at });
+  });
+  passport.deserializeUser((serialized: any, cb) => {
+    cb(null, { claims: { sub: serialized.sub }, expires_at: serialized.expires_at });
+  });
 
   if (isDevMode) {
     console.log("[auth] Running in DEV mode — auto-login via /api/login");

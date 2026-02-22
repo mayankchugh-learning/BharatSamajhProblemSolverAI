@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/popover";
 import { Share2, Copy, Check } from "lucide-react";
 import { FaWhatsapp, FaXTwitter, FaFacebook, FaLinkedin, FaTelegram } from "react-icons/fa6";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 interface SocialShareProps {
   url?: string;
@@ -62,6 +62,8 @@ export function SocialShare({
   size = "sm",
 }: SocialShareProps) {
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+  const supportsNativeShare = useRef(typeof navigator !== "undefined" && !!navigator.share);
   const shareUrl = url || window.location.href;
   const shareText = description ? `${title} — ${description}` : title;
 
@@ -71,25 +73,34 @@ export function SocialShare({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
+      // Fallback for HTTP
+      const textarea = document.createElement("textarea");
+      textarea.value = shareUrl;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const handleNativeShare = async () => {
-    if (navigator.share) {
+  const handleClick = async () => {
+    if (supportsNativeShare.current) {
       try {
         await navigator.share({ title, text: description, url: shareUrl });
         return;
       } catch {
-        // User cancelled or not supported
+        // User cancelled — fall through to popover
       }
     }
+    setOpen(true);
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant={variant} size={size} className="gap-1.5" onClick={handleNativeShare}>
+        <Button variant={variant} size={size} className="gap-1.5" onClick={handleClick}>
           <Share2 className="w-4 h-4" />
           <span className="hidden sm:inline">Share</span>
         </Button>
