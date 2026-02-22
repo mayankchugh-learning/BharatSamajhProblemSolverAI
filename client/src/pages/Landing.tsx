@@ -2,12 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SocialShare } from "@/components/SocialShare";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useDocumentHead } from "@/hooks/use-document-head";
 import {
   ArrowRight,
   Brain,
   CheckCircle,
-  Shield,
   Users,
   Zap,
   Star,
@@ -18,7 +18,6 @@ import {
   Heart,
   Sparkles,
   Languages,
-  Lock,
   IndianRupee,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -114,10 +113,7 @@ export default function Landing() {
       {/* Navbar */}
       <nav className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-display font-bold text-2xl text-primary">
-            <Brain className="w-8 h-8" />
-            <span>BharatSolve AI</span>
-          </div>
+          <BrandLogo />
           <div className="flex items-center gap-4">
             <a href="#features" className="text-sm font-medium hover:text-primary hidden md:block">Features</a>
             <a href="#pricing" className="text-sm font-medium hover:text-primary hidden md:block">Pricing</a>
@@ -516,9 +512,8 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             {/* Brand */}
             <div className="md:col-span-1">
-              <div className="flex items-center gap-2 font-display font-bold text-xl text-primary mb-4">
-                <Brain className="w-6 h-6" />
-                <span>BharatSolve AI</span>
+              <div className="mb-4">
+                <BrandLogo size="sm" />
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 AI-powered problem solving for Indians. Culturally aware, empathetic, and available in 12 languages.
@@ -570,8 +565,8 @@ export default function Landing() {
           </div>
 
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} BharatSolve AI. All rights reserved. Made with ❤️ in India.
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              &copy; {new Date().getFullYear()} BharatSolve AI. All rights reserved. Made with ❤️ in India 🇮🇳
             </p>
             <p className="text-xs text-muted-foreground">
               AI-powered problem solver for family, career, and social challenges across India.

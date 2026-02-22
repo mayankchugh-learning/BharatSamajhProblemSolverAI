@@ -3,6 +3,7 @@ import { useProblem } from "@/hooks/use-problems";
 import { useDiscussionMessages, useSendMessage } from "@/hooks/use-discussion";
 import { useDocumentHead } from "@/hooks/use-document-head";
 import { SocialShare } from "@/components/SocialShare";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -284,6 +285,8 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
             Back
           </Button>
           <Separator orientation="vertical" className="h-6" />
+          <BrandLogo size="sm" className="hidden sm:flex shrink-0" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
           <div className="min-w-0 flex-1">
             <h1 className="text-sm font-semibold truncate">{problem.title}</h1>
             <div className="flex items-center gap-2">

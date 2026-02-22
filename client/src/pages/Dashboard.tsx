@@ -5,8 +5,9 @@ import { CreateProblemDialog } from "@/components/CreateProblemDialog";
 import { SubscriptionCard } from "@/components/SubscriptionCard";
 import { ReferralCard } from "@/components/ReferralCard";
 import { Advertisement } from "@/components/Advertisement";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { useDocumentHead } from "@/hooks/use-document-head";
@@ -26,10 +27,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-display font-bold text-2xl text-primary">
-            <LayoutDashboard className="w-6 h-6" />
-            <span>BharatSolve</span>
-          </div>
+          <BrandLogo />
           
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 mr-4">
@@ -86,8 +84,8 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="text-center py-20 bg-muted/10 rounded-2xl border-2 border-dashed border-muted">
-                <div className="bg-muted/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <LayoutDashboard className="w-8 h-8 text-muted-foreground/50" />
+                <div className="mb-4 flex justify-center">
+                  <BrandLogo size="sm" className="text-muted-foreground/50" />
                 </div>
                 <h3 className="text-lg font-semibold">No problems yet</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">
