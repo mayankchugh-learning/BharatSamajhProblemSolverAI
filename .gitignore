@@ -11,9 +11,8 @@ vite.config.ts.*
 .upm/
 uploads/
 
-# Local docs (don't push)
-docs/free-hosting-deployment.md
-docs/NeonDBsetting1.png
+# Local docs (keep private, don't push)
+docs/
 
 # Terraform
 infrastructure/.terraform/
