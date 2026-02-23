@@ -434,7 +434,7 @@ At scale, **AI and infrastructure are &lt;5% of revenue**; payment processing is
 
 ## Appendix B: Related Documentation
 
-- [free-hosting-deployment.md](./free-hosting-deployment.md) — Step-by-step deployment on Render, Railway, Fly.io, Koyeb
+- [free-hosting-deployment.md](./free-hosting-deployment.md) — **Cheapest path ($0)** and step-by-step deployment on Render, Railway, Fly.io, Koyeb
 - [monetization-strategy.md](./monetization-strategy.md) — Revenue model, payment integration, pricing
 - [payment-options-hk.md](./payment-options-hk.md) — Lemon Squeezy vs Stripe for HK
 - [infrastructure/README.md](../infrastructure/README.md) — AWS Terraform setup and costs

@@ -13,6 +13,111 @@
 
 ---
 
+## Cheapest Deployment Path ($0/month) — With Proper Database
+
+The **cheapest option with a proper PostgreSQL database** is $0/month: free hosting + Neon (forever-free PostgreSQL) + mock AI. No credit card required.
+
+| Choice | Cheapest Option | Why |
+|--------|-----------------|-----|
+| **Hosting** | Koyeb or Render | Both free, no credit card. Koyeb = always-on; Render = sleeps after 15 min |
+| **Database** | **Neon PostgreSQL** | Forever free (0.5 GB). Standard PostgreSQL, works with Drizzle ORM |
+| **AI** | Mock AI (omit `OPENAI_API_KEY`) | Culturally themed demo responses, no OpenAI cost |
+
+**Total cost: $0.** Users, problems, subscriptions, and referrals persist across restarts.
+
+---
+
+### Step-by-Step: Cheapest Deployment (Koyeb + Neon PostgreSQL + Mock AI)
+
+#### 1. Pre-flight (local)
+
+```bash
+npm run check                    # TypeScript
+npm run build                    # Production build
+git add -A && git status         # Ensure .env is NOT staged
+git push origin main
+```
+
+#### 2. Create Neon database
+
+1. Go to [neon.tech](https://neon.tech) and sign up (GitHub or email)
+2. **New Project** → name it (e.g. `bharatsolve`)
+3. Copy the **connection string** (looks like `postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`)
+4. Add `?sslmode=require` if not already present
+
+#### 3. Run database migration (local, once)
+
+```bash
+DATABASE_URL="postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require" npm run db:push
+```
+
+This creates the tables (`users`, `problems`, `user_profiles`, `sessions`, etc.). You should see output like "Pushing schema changes..."
+
+#### 4. Create Koyeb account and deploy
+
+1. Go to [koyeb.com](https://www.koyeb.com) and sign up with GitHub (no credit card)
+2. **Create App** → **GitHub** → authorize Koyeb → select your repo
+3. **Builder:** Docker (auto-detects `Dockerfile`)
+4. **Instance type:** Nano (free)
+5. **Port:** `3000`
+6. **Region:** Choose closest (e.g. Singapore for India)
+
+#### 5. Environment variables
+
+| Variable | Value |
+|----------|-------|
+| `NODE_ENV` | `production` |
+| `SESSION_SECRET` | Generate: `openssl rand -base64 32` |
+| `DATABASE_URL` | Your Neon connection string from step 2 |
+
+**Do NOT set** `OPENAI_API_KEY` if using mock AI (or add it for real AI responses).
+
+#### 6. Deploy
+
+Click **Deploy**. Koyeb builds the Docker image and runs the app. Your URL: `https://<app-name>-<org>.koyeb.app`.
+
+#### 7. Verify
+
+- Landing page loads
+- `GET https://<your-url>/api/health` returns `{"status":"ok"}`
+- Create a problem → mock AI returns a solution; **data persists** (refresh or revisit)
+- Login works; user and session stored in PostgreSQL
+- Subscription and referral data persists across restarts
+
+---
+
+### Alternative: Render (same stack, sleeps after 15 min)
+
+| Step | Action |
+|------|--------|
+| 1 | Create Neon DB at [neon.tech](https://neon.tech); copy connection string |
+| 2 | Run `DATABASE_URL="<neon-url>" npm run db:push` locally |
+| 3 | [render.com](https://render.com) → New Web Service → connect GitHub repo |
+| 4 | Build: `npm run build`, Start: `npm start` |
+| 5 | Env vars: `NODE_ENV`, `SESSION_SECRET`, `DATABASE_URL` |
+| 6 | Deploy |
+
+**Still $0.** Render sleeps after inactivity; first request after sleep takes ~30–60s.
+
+---
+
+### Optional: In-Memory (no database)
+
+If you only need a quick demo and **don't care about persistence**, omit `DATABASE_URL`. Data resets on every restart. No Neon setup required.
+
+---
+
+### Cheapest Path Quick Reference
+
+| Scenario | Hosting | Database | AI | Cost | Notes |
+|----------|---------|----------|-----|------|-------|
+| **Recommended** | Koyeb | **Neon PostgreSQL** | Mock | $0 | Proper DB, persistent data, no credit card |
+| **Easy start, sleeps** | Render | **Neon PostgreSQL** | Mock | $0 | Same stack; cold starts after 15 min idle |
+| **Real AI, free** | Koyeb | **Neon PostgreSQL** | OpenAI ($5 credit) | $0 initially | Add `OPENAI_API_KEY` for real responses |
+| **Quick demo only** | Koyeb | In-memory | Mock | $0 | No DB setup; data resets on restart |
+
+---
+
 ## Hosting Options
 
 ### Option 1: Render (Recommended - Easiest Start)
@@ -238,6 +343,97 @@ Set these on your chosen platform's dashboard or CLI:
 
 ---
 
+## Database Migration Guide
+
+BharatSolve AI uses Drizzle ORM with two approaches for schema setup:
+
+| Command | When to Use | What It Does |
+|---------|-------------|--------------|
+| `npm run db:push` | **First deploy** or **dev** | Syncs schema directly to DB. No migration files. Fast, but no version history. |
+| `npm run db:generate` | **Schema changes** | Creates migration files in `drizzle/` from `shared/schema.ts`. Run before `db:migrate`. |
+| `npm run db:migrate` | **Production** | Applies pending migration files. Use for versioned, repeatable deploys. |
+
+### Migration Strategy by Scenario
+
+| Scenario | Approach |
+|----------|----------|
+| **Brand new deploy, no DB yet** | Provision DB → set `DATABASE_URL` → run `db:push` once (or `db:migrate` if you have migrations) |
+| **Existing project with migrations** | Run `db:migrate` before app start on each deploy |
+| **Schema changed locally** | `npm run db:generate` → commit `drizzle/` → run `db:migrate` on deploy |
+
+### How to Run Migrations on Each Platform
+
+**Render, Koyeb, Hugging Face Spaces (external DB):**
+- Run migrations **locally** before deploy: `DATABASE_URL=<your-connection-string> npm run db:push` (first time) or `npm run db:migrate` (if using migrations)
+- Or add a **Build** or **Release** command that runs migration before start (see platform docs)
+
+**Railway:**
+- Add a one-off **Deploy Command** in the service: `npm run db:migrate && npm start`
+- Or run `railway run npm run db:migrate` once after provisioning Postgres
+
+**Fly.io:**
+- Add to `fly.toml` under `[processes]` or use a release command
+- Or run once: `fly ssh console` then `npm run db:migrate`
+
+**Docker Compose (local or self-hosted):**
+```bash
+# Start DB, run migrations, then app
+docker compose --profile migrate up
+# Or: docker compose up db -d && docker compose run --rm migrate
+```
+
+**External DB (Neon, Supabase, etc.) from your machine:**
+```bash
+# First-time schema setup
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" npm run db:push
+
+# Or with migration files
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" npm run db:migrate
+```
+
+---
+
+## Step-by-Step Deployment Guide
+
+### 1. Pre-Deployment (Local)
+
+1. **Validate code:**
+   ```bash
+   npm run check    # TypeScript
+   npm run build    # Production build
+   ```
+
+2. **Ensure `.env` is not committed** (check `.gitignore`)
+
+3. **Commit and push** to GitHub
+
+4. **Choose storage:** PostgreSQL (persistent) or in-memory (no DB, data resets on restart)
+
+### 2. Provision Database (if using PostgreSQL)
+
+- **Platform-included:** Create Postgres on Render, Railway, or Fly.io; copy `DATABASE_URL`
+- **External:** Create a free DB on [Neon](https://neon.tech) or [Supabase](https://supabase.com); copy the connection string
+
+### 3. Run Initial Migration
+
+- **Option A (db:push):** `DATABASE_URL="<your-url>" npm run db:push`
+- **Option B (db:migrate):** If you have migrations in `drizzle/`, run `DATABASE_URL="<your-url>" npm run db:migrate`
+
+### 4. Configure Hosting Platform
+
+- Connect GitHub repo
+- Set **Environment Variables** (see table below)
+- Set **Port** to `3000` (or `7860` for Hugging Face Spaces)
+- Build/Start: Use Dockerfile (auto-detected) or `npm run build` + `npm start`
+
+### 5. Deploy and Verify
+
+- Trigger deploy (often automatic on push)
+- Check logs for startup errors
+- Visit deployed URL and verify: `/` loads, `/api/health` returns `200`
+
+---
+
 ## Deployment Checklist
 
 Use this checklist when deploying to any platform.
@@ -251,6 +447,13 @@ Use this checklist when deploying to any platform.
 - [ ] `Dockerfile` is present at the repo root
 - [ ] Decide on storage mode: **PostgreSQL** or **in-memory**
 
+### Database Setup (if using PostgreSQL)
+
+- [ ] Provision PostgreSQL (Neon, Supabase, Render, Railway, Fly Postgres, etc.)
+- [ ] Copy connection string; add `?sslmode=require` if using Neon/Supabase
+- [ ] Run initial migration: `DATABASE_URL="<url>" npm run db:push` (first time) or `npm run db:migrate` (if using migrations)
+- [ ] Verify tables exist (e.g. `users`, `problems`, `user_profiles`, `sessions`)
+
 ### Platform Setup
 
 - [ ] Create account on chosen hosting platform
@@ -261,18 +464,16 @@ Use this checklist when deploying to any platform.
 ### Environment Variables
 
 - [ ] Set `NODE_ENV=production`
-- [ ] Set `SESSION_SECRET` to a strong random value (at least 32 characters)
+- [ ] Set `SESSION_SECRET` to a strong random value (e.g. `openssl rand -base64 32`)
 - [ ] Set `DATABASE_URL` if using PostgreSQL (copy from your DB provider)
 - [ ] Set `OPENAI_API_KEY` if using real AI (leave empty for mock AI)
 - [ ] Set `BASE_URL` to your actual deployed domain
 - [ ] Set `ALLOWED_ORIGIN` to your domain for CORS protection
 
-### Database (if using PostgreSQL)
+### Migration on Deploy (if using migrations)
 
-- [ ] Provision a free PostgreSQL instance (Neon, Supabase, Fly Postgres, etc.)
-- [ ] Copy the connection string into `DATABASE_URL`
-- [ ] Run schema migration: `npm run db:push` (or use the `migrate` Docker Compose profile)
-- [ ] Verify database connectivity in application logs
+- [ ] Ensure `db:migrate` runs before app start (platform release/deploy command, or run manually once)
+- [ ] For schema changes: `npm run db:generate` locally, commit `drizzle/`, redeploy
 
 ### Post-Deployment Verification
 
@@ -303,6 +504,28 @@ Use this checklist when deploying to any platform.
 
 ## Quick Start Commands
 
+### Local Pre-Flight Checks
+
+```bash
+npm run check                    # TypeScript
+npm run build                    # Production build
+git status                       # Ensure .env not staged
+```
+
+### Database Migration (before first deploy)
+
+```bash
+# Option A: db:push (first-time schema sync)
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" npm run db:push
+
+# Option B: db:migrate (if using migration files)
+DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" npm run db:migrate
+
+# Option C: Docker Compose (local Postgres)
+docker compose up db -d
+docker compose --profile migrate up
+```
+
 ### Local Docker Test (before deploying)
 
 ```bash
@@ -322,25 +545,38 @@ fly launch
 fly postgres create
 fly postgres attach <db-name>
 fly secrets set SESSION_SECRET="$(openssl rand -base64 32)"
+# Run migration once: fly ssh console -> npm run db:migrate (or use release command)
 fly deploy
 ```
 
 ### Render Deployment
 
-No CLI needed -- everything is configured through the Render dashboard at [dashboard.render.com](https://dashboard.render.com).
+No CLI needed -- everything is configured through the Render dashboard at [dashboard.render.com](https://dashboard.render.com). Run migrations locally with `DATABASE_URL` before deploy, or add a build command: `npm run db:migrate && npm run build`.
 
 ### Railway Deployment
 
 ```bash
 # Option A: Dashboard (recommended)
 # Go to railway.app -> New Project -> Deploy from GitHub
+# Add deploy command: npm run db:migrate && npm start
 
 # Option B: CLI
 npm install -g @railway/cli
 railway login
 railway init
 railway add --plugin postgresql
+railway run npm run db:migrate   # Run once after DB is linked
 railway up
+```
+
+### Koyeb / Neon / Supabase (external DB)
+
+```bash
+# 1. Create free DB on Neon or Supabase
+# 2. Run migration locally
+DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require" npm run db:push
+
+# 3. Deploy to Koyeb; set DATABASE_URL in Koyeb env vars
 ```
 
 ---
