@@ -20,6 +20,7 @@ export async function generateImageBuffer(
   prompt: string,
   size: "1024x1024" | "512x512" | "256x256" = "1024x1024"
 ): Promise<Buffer> {
+  if (!openai) throw new Error("OpenAI client not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY.");
   const response = await openai.images.generate({
     model: "gpt-image-1",
     prompt,
@@ -38,6 +39,7 @@ export async function editImages(
   prompt: string,
   outputPath?: string
 ): Promise<Buffer> {
+  if (!openai) throw new Error("OpenAI client not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY.");
   const images = await Promise.all(
     imageFiles.map((file) =>
       toFile(fs.createReadStream(file), file, {

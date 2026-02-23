@@ -278,7 +278,7 @@ Use this checklist when deploying to any platform.
 
 - [ ] Application starts without errors (check platform logs)
 - [ ] Landing page loads at the deployed URL
-- [ ] Health check endpoint responds: `GET /api/auth/user`
+- [ ] Health check endpoint responds: `GET /api/health`
 - [ ] Login flow works (dev auto-login or OIDC)
 - [ ] Creating a problem returns an AI-generated solution
 - [ ] Subscription and referral pages render correctly
