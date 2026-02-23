@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { authStorage } from "./storage";
-import { isAuthenticated } from "./replitAuth";
+import { isAuthenticated } from "./auth";
 import { isAdminUser } from "./adminAuth";
 import { logger } from "../../utils/logger";
 

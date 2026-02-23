@@ -9,6 +9,6 @@ tailwind-merge | Utility for merging Tailwind CSS classes
 
 ## Notes
 - Using Google Fonts: 'Outfit' for headings, 'Inter' for body
-- Authentication via Replit Auth (use-auth.ts)
+- Authentication via session-based auth (/api/login)
 - API endpoints defined in shared/routes.ts
 - Subscription status: 'trial', 'active', 'expired'

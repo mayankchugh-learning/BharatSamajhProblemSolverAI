@@ -88,8 +88,6 @@ PORT=3000
 | `OPENAI_API_KEY` | Empty | Mock AI responses (cultural theme) |
 | `OPENAI_API_KEY` | Valid key | OpenAI API calls |
 | `OPENAI_API_KEY` | `ollama` | Local Ollama server |
-| `REPL_ID` | Empty | Dev auto-login |
-| `REPL_ID` | Set | OpenID Connect (Passport.js) |
 
 ---
 
@@ -262,7 +260,7 @@ BharatSamajhProblemSolverAI/
 │   ├── routes.ts               # API routes + AI integration
 │   ├── storage.ts              # IStorage interface (memory + PostgreSQL)
 │   ├── middleware/security.ts  # Security middleware stack
-│   └── replit_integrations/    # Auth, chat, audio, image, batch modules
+│   └── integrations/           # Auth, chat, audio, image, batch modules
 ├── shared/                     # Shared types (frontend + backend)
 │   ├── schema.ts               # Drizzle tables + Zod schemas
 │   └── routes.ts               # Typed API contract
