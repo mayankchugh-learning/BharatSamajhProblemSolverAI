@@ -101,7 +101,9 @@ PORT=3000
 | `npm run build` | Build client (Vite) + server (esbuild) to `dist/` |
 | `npm start` | Run the production build |
 | `npm run check` | TypeScript type-checking |
-| `npm run db:push` | Push Drizzle schema to PostgreSQL |
+| `npm run db:push` | Push Drizzle schema to PostgreSQL (dev) |
+| `npm run db:generate` | Generate migration files from schema |
+| `npm run db:migrate` | Run pending migrations |
 
 ---
 

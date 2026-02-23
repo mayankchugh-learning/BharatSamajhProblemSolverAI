@@ -12,6 +12,11 @@ import Dashboard from "@/pages/Dashboard";
 import Landing from "@/pages/Landing";
 import ProblemDetail from "@/pages/ProblemDetail";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import Admin from "@/pages/Admin";
+import TasksList from "@/pages/TasksList";
+import Help from "@/pages/Help";
+import Resources from "@/pages/Resources";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/contexts/locale-context";
 import { Loader2 } from "lucide-react";
@@ -35,21 +40,30 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/admin" component={Admin} />
         <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/help" component={Help} />
+        <Route path="/resources" component={Resources} />
         <Route component={NotFound} />
       </Switch>
     );
   }
 
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/privacy" component={PrivacyPolicy} />
-      <Route path="/problems/:id">
-        {(params) => <ProblemDetail id={params.id} />}
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
+    <AppShell>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/help" component={Help} />
+        <Route path="/resources" component={Resources} />
+        <Route path="/admin" component={Admin} />
+        <Route path="/tasks" component={TasksList} />
+        <Route path="/problems/:id">
+          {(params) => <ProblemDetail id={params.id} />}
+        </Route>
+        <Route component={NotFound} />
+      </Switch>
+    </AppShell>
   );
 }
 

@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 export interface SearchResult {
   title: string;
   snippet: string;
@@ -21,7 +23,7 @@ async function searchBrave(query: string, apiKey: string): Promise<SearchResult[
   });
 
   if (!response.ok) {
-    console.error(`[web-search] Brave Search returned ${response.status}`);
+    logger.warn({ status: response.status, provider: "brave" }, "Web search Brave returned error");
     return [];
   }
 
@@ -44,7 +46,7 @@ async function searchSerper(query: string, apiKey: string): Promise<SearchResult
   });
 
   if (!response.ok) {
-    console.error(`[web-search] Serper returned ${response.status}`);
+    logger.warn({ status: response.status, provider: "serper" }, "Web search Serper returned error");
     return [];
   }
 
@@ -80,7 +82,7 @@ export async function searchWeb(query: string): Promise<WebSearchResult> {
 
     return { query, results, searchPerformed: results.length > 0 };
   } catch (err) {
-    console.error("[web-search] Search failed:", err);
+    logger.warn({ err }, "Web search failed");
     return { query, results: [], searchPerformed: false };
   }
 }

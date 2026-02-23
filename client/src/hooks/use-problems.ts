@@ -3,14 +3,32 @@ import { api, buildUrl } from "@shared/routes";
 import type { InsertProblem } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
-export function useProblems() {
+export interface ProblemsFilters {
+  search?: string;
+  category?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+export function useProblems(filters?: ProblemsFilters) {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set("search", filters.search);
+  if (filters?.category) params.set("category", filters.category);
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.page) params.set("page", String(filters.page));
+  if (filters?.limit) params.set("limit", String(filters.limit));
+  const queryString = params.toString();
+  const url = queryString ? `${api.problems.list.path}?${queryString}` : api.problems.list.path;
+
   return useQuery({
-    queryKey: [api.problems.list.path],
+    queryKey: [api.problems.list.path, filters],
     queryFn: async () => {
-      const res = await fetch(api.problems.list.path, { credentials: "include" });
-      if (res.status === 401) return null; // Handle unauthorized gracefully
+      const res = await fetch(url, { credentials: "include" });
+      if (res.status === 401) return null;
       if (!res.ok) throw new Error("Failed to fetch problems");
-      return api.problems.list.responses[200].parse(await res.json());
+      const data = api.problems.list.responses[200].parse(await res.json());
+      return data;
     },
   });
 }
@@ -53,7 +71,7 @@ export function useCreateProblem() {
       return api.problems.create.responses[201].parse(await res.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.problems.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.problems.list.path] } as { queryKey: readonly unknown[] });
       toast({
         title: "Problem Solved!",
         description: "The AI has analyzed your request.",

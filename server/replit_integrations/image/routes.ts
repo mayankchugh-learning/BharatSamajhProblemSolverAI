@@ -1,6 +1,7 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import { openai } from "./client";
+import { logger } from "../../utils/logger";
 
 const imageRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -11,8 +12,14 @@ const imageRateLimit = rateLimit({
 });
 
 export function registerImageRoutes(app: Express, auth: RequestHandler): void {
-  app.post("/api/generate-image", auth, imageRateLimit, async (req: Request, res: Response) => {
+  app.post("/api/v1/generate-image", auth, imageRateLimit, async (req: Request, res: Response) => {
     try {
+      if (!openai) {
+        return res.status(503).json({
+          error: "AI image generation is not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY in .env",
+        });
+      }
+
       const { prompt, size = "1024x1024" } = req.body;
 
       if (!prompt) {
@@ -32,7 +39,7 @@ export function registerImageRoutes(app: Express, auth: RequestHandler): void {
         b64_json: imageData?.b64_json ?? null,
       });
     } catch (error) {
-      console.error("Error generating image:", error);
+      req.log?.error({ err: error }, "Error generating image") ?? logger.error({ err: error }, "Error generating image");
       res.status(500).json({ error: "Failed to generate image" });
     }
   });

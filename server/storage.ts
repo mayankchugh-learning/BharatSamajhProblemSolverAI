@@ -4,14 +4,18 @@ import {
   userProfiles,
   discussionMessages,
   feedback,
+  tasks,
   type Problem,
   type InsertProblem,
   type UserProfile,
   type DiscussionMessage,
   type Feedback,
-  type InsertFeedback
+  type InsertFeedback,
+  type Task,
+  type InsertTask,
+  type UpdateTask,
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface UserDataExport {
@@ -30,6 +34,10 @@ export interface IStorage {
   
   // Problems
   getProblems(userId: string): Promise<Problem[]>;
+  getProblemsFiltered(
+    userId: string,
+    filters: { search?: string; category?: string; status?: string; page?: number; limit?: number }
+  ): Promise<{ problems: Problem[]; total: number }>;
   getProblem(id: number): Promise<Problem | undefined>;
   createProblem(userId: string, problem: InsertProblem): Promise<Problem>;
   deleteProblem(id: number): Promise<void>;
@@ -45,6 +53,18 @@ export interface IStorage {
   // Privacy: data export & deletion
   exportUserData(userId: string): Promise<UserDataExport>;
   deleteUserData(userId: string): Promise<void>;
+
+  // Tasks
+  getTasks(userId: string): Promise<Task[]>;
+  getTask(id: number, userId: string): Promise<Task | undefined>;
+  createTask(userId: string, data: InsertTask): Promise<Task>;
+  updateTask(id: number, userId: string, data: UpdateTask): Promise<Task>;
+  deleteTask(id: number, userId: string): Promise<void>;
+
+  // Admin
+  getAdminStats(): Promise<{ users: number; problems: number; trial: number; active: number; expired: number; feedback: number }>;
+  updateUserAccess(userId: string, accessStatus: "active" | "suspended"): Promise<UserProfile | null>;
+  getAllProfiles(): Promise<UserProfile[]>;
 }
 
 // ── In-Memory Storage (development / no PostgreSQL) ──
@@ -54,10 +74,12 @@ export class MemoryStorage implements IStorage {
   private problemsList: Problem[] = [];
   private messagesList: DiscussionMessage[] = [];
   private feedbackList: Feedback[] = [];
+  private tasksList: Task[] = [];
   private nextProfileId = 1;
   private nextProblemId = 1;
   private nextMessageId = 1;
   private nextFeedbackId = 1;
+  private nextTaskId = 1;
 
   async getUserProfile(userId: string): Promise<UserProfile | undefined> {
     return this.profiles.get(userId);
@@ -72,7 +94,8 @@ export class MemoryStorage implements IStorage {
       referralCode: randomUUID().substring(0, 8),
       referredBy: null,
       freeMonthsEarned: 0,
-    };
+      accessStatus: "active",
+    } as UserProfile;
     this.profiles.set(userId, profile);
     return profile;
   }
@@ -103,6 +126,37 @@ export class MemoryStorage implements IStorage {
     return this.problemsList
       .filter((p) => p.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+  }
+
+  async getProblemsFiltered(
+    userId: string,
+    filters: { search?: string; category?: string; status?: string; page?: number; limit?: number }
+  ): Promise<{ problems: Problem[]; total: number }> {
+    let list = this.problemsList
+      .filter((p) => p.userId === userId)
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
+
+    if (filters.search?.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          (p.title || "").toLowerCase().includes(q) ||
+          (p.description || "").toLowerCase().includes(q)
+      );
+    }
+    if (filters.category?.trim()) {
+      list = list.filter((p) => (p.category || "other") === filters.category);
+    }
+    if (filters.status?.trim()) {
+      list = list.filter((p) => (p.status || "pending") === filters.status);
+    }
+
+    const total = list.length;
+    const page = Math.max(1, filters.page ?? 1);
+    const limit = Math.min(50, Math.max(1, filters.limit ?? 12));
+    const offset = (page - 1) * limit;
+    const problems = list.slice(offset, offset + limit);
+    return { problems, total };
   }
 
   async getProblem(id: number): Promise<Problem | undefined> {
@@ -185,7 +239,75 @@ export class MemoryStorage implements IStorage {
     this.messagesList = this.messagesList.filter((m) => !userProblemIds.has(m.problemId));
     this.problemsList = this.problemsList.filter((p) => p.userId !== userId);
     this.feedbackList = this.feedbackList.filter((f) => f.userId !== userId);
+    this.tasksList = this.tasksList.filter((t) => t.userId !== userId);
     this.profiles.delete(userId);
+  }
+
+  async getTasks(userId: string): Promise<Task[]> {
+    return this.tasksList
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => (b.updatedAt?.getTime() ?? b.createdAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? a.createdAt?.getTime() ?? 0));
+  }
+
+  async getTask(id: number, userId: string): Promise<Task | undefined> {
+    const t = this.tasksList.find((x) => x.id === id);
+    return t?.userId === userId ? t : undefined;
+  }
+
+  async createTask(userId: string, data: InsertTask): Promise<Task> {
+    const task: Task = {
+      id: this.nextTaskId++,
+      userId,
+      title: data.title,
+      description: data.description ?? "",
+      status: data.status ?? "todo",
+      priority: data.priority ?? "medium",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Task;
+    this.tasksList.push(task);
+    return task;
+  }
+
+  async updateTask(id: number, userId: string, data: UpdateTask): Promise<Task> {
+    const task = this.tasksList.find((t) => t.id === id && t.userId === userId);
+    if (!task) throw new Error("Task not found");
+    if (data.title !== undefined) task.title = data.title;
+    if (data.description !== undefined) task.description = data.description;
+    if (data.status !== undefined) task.status = data.status;
+    if (data.priority !== undefined) task.priority = data.priority;
+    (task as any).updatedAt = new Date();
+    return task;
+  }
+
+  async deleteTask(id: number, userId: string): Promise<void> {
+    this.tasksList = this.tasksList.filter((t) => !(t.id === id && t.userId === userId));
+  }
+
+  async getAdminStats(): Promise<{ users: number; problems: number; trial: number; active: number; expired: number; feedback: number }> {
+    const profiles = Array.from(this.profiles.values());
+    const trial = profiles.filter((p) => p.subscriptionStatus === "trial").length;
+    const active = profiles.filter((p) => p.subscriptionStatus === "active").length;
+    const expired = profiles.filter((p) => p.subscriptionStatus === "expired").length;
+    return {
+      users: profiles.length,
+      problems: this.problemsList.length,
+      trial,
+      active,
+      expired,
+      feedback: this.feedbackList.length,
+    };
+  }
+
+  async updateUserAccess(userId: string, accessStatus: "active" | "suspended"): Promise<UserProfile | null> {
+    const profile = this.profiles.get(userId);
+    if (!profile) return null;
+    (profile as any).accessStatus = accessStatus;
+    return profile;
+  }
+
+  async getAllProfiles(): Promise<UserProfile[]> {
+    return Array.from(this.profiles.values());
   }
 }
 
@@ -204,6 +326,7 @@ export class DatabaseStorage implements IStorage {
       referralCode: code,
       subscriptionStatus: 'trial',
       trialStartDate: new Date(),
+      accessStatus: 'active',
     }).returning();
     return profile;
   }
@@ -242,6 +365,44 @@ export class DatabaseStorage implements IStorage {
 
   async getProblems(userId: string): Promise<Problem[]> {
     return await db.select().from(problems).where(eq(problems.userId, userId)).orderBy(desc(problems.createdAt));
+  }
+
+  async getProblemsFiltered(
+    userId: string,
+    filters: { search?: string; category?: string; status?: string; page?: number; limit?: number }
+  ): Promise<{ problems: Problem[]; total: number }> {
+    const conditions = [eq(problems.userId, userId)];
+
+    if (filters.search?.trim()) {
+      const q = `%${filters.search.trim().replace(/%/g, "\\%")}%`;
+      conditions.push(
+        or(
+          ilike(problems.title, q),
+          ilike(problems.description, q)
+        )!
+      );
+    }
+    if (filters.category?.trim()) {
+      conditions.push(eq(problems.category, filters.category));
+    }
+    if (filters.status?.trim()) {
+      conditions.push(eq(problems.status, filters.status));
+    }
+
+    const whereClause = and(...conditions);
+    const baseQuery = db.select().from(problems).where(whereClause).orderBy(desc(problems.createdAt));
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(problems)
+      .where(whereClause);
+
+    const total = countResult?.count ?? 0;
+    const page = Math.max(1, filters.page ?? 1);
+    const limit = Math.min(50, Math.max(1, filters.limit ?? 12));
+    const offset = (page - 1) * limit;
+    const problemsList = await baseQuery.limit(limit).offset(offset);
+    return { problems: problemsList, total };
   }
 
   async getProblem(id: number): Promise<Problem | undefined> {
@@ -319,8 +480,74 @@ export class DatabaseStorage implements IStorage {
       }
       await tx.delete(problems).where(eq(problems.userId, userId));
       await tx.delete(feedback).where(eq(feedback.userId, userId));
+      await tx.delete(tasks).where(eq(tasks.userId, userId));
       await tx.delete(userProfiles).where(eq(userProfiles.userId, userId));
     });
+  }
+
+  async getTasks(userId: string): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.updatedAt), desc(tasks.createdAt));
+  }
+
+  async getTask(id: number, userId: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task?.userId === userId ? task : undefined;
+  }
+
+  async createTask(userId: string, data: InsertTask): Promise<Task> {
+    const [task] = await db.insert(tasks).values({
+      userId,
+      title: data.title,
+      description: data.description ?? "",
+      status: data.status ?? "todo",
+      priority: data.priority ?? "medium",
+      updatedAt: new Date(),
+    }).returning();
+    return task;
+  }
+
+  async updateTask(id: number, userId: string, data: UpdateTask): Promise<Task> {
+    const [task] = await db.update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+      .returning();
+    if (!task) throw new Error("Task not found");
+    return task;
+  }
+
+  async deleteTask(id: number, userId: string): Promise<void> {
+    await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+  }
+
+  async getAdminStats(): Promise<{ users: number; problems: number; trial: number; active: number; expired: number; feedback: number }> {
+    const [[u], [p], [trial], [active], [expired], [fb]] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(userProfiles),
+      db.select({ count: sql<number>`count(*)::int` }).from(problems),
+      db.select({ count: sql<number>`count(*)::int` }).from(userProfiles).where(eq(userProfiles.subscriptionStatus, "trial")),
+      db.select({ count: sql<number>`count(*)::int` }).from(userProfiles).where(eq(userProfiles.subscriptionStatus, "active")),
+      db.select({ count: sql<number>`count(*)::int` }).from(userProfiles).where(eq(userProfiles.subscriptionStatus, "expired")),
+      db.select({ count: sql<number>`count(*)::int` }).from(feedback),
+    ]);
+    return {
+      users: u?.count ?? 0,
+      problems: p?.count ?? 0,
+      trial: trial?.count ?? 0,
+      active: active?.count ?? 0,
+      expired: expired?.count ?? 0,
+      feedback: fb?.count ?? 0,
+    };
+  }
+
+  async updateUserAccess(userId: string, accessStatus: "active" | "suspended"): Promise<UserProfile | null> {
+    const [profile] = await db.update(userProfiles)
+      .set({ accessStatus })
+      .where(eq(userProfiles.userId, userId))
+      .returning();
+    return profile ?? null;
+  }
+
+  async getAllProfiles(): Promise<UserProfile[]> {
+    return await db.select().from(userProfiles).orderBy(desc(userProfiles.trialStartDate));
   }
 }
 

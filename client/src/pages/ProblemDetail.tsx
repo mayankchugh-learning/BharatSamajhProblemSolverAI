@@ -4,6 +4,7 @@ import { useDiscussionMessages, useSendMessage } from "@/hooks/use-discussion";
 import { useDocumentHead } from "@/hooks/use-document-head";
 import { useLocale } from "@/contexts/locale-context";
 import { SocialShare } from "@/components/SocialShare";
+import { ProblemDetailSkeleton } from "@/components/ProblemDetailSkeleton";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -263,11 +264,7 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
   };
 
   if (problemLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
+    return <ProblemDetailSkeleton />;
   }
 
   if (!problem) {
@@ -409,8 +406,21 @@ export default function ProblemDetail({ id }: ProblemDetailProps) {
 
             {/* Discussion messages */}
             {messagesLoading ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-muted animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-full max-w-[200px] rounded bg-muted animate-pulse" />
+                    <div className="h-3 w-16 rounded bg-muted animate-pulse" />
+                  </div>
+                </div>
+                <div className="flex gap-3 flex-row-reverse">
+                  <div className="w-8 h-8 rounded-full bg-muted animate-pulse shrink-0" />
+                  <div className="flex-1 max-w-[60%] space-y-2 flex flex-col items-end">
+                    <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                    <div className="h-3 w-14 rounded bg-muted animate-pulse" />
+                  </div>
+                </div>
               </div>
             ) : (
               <AnimatePresence>

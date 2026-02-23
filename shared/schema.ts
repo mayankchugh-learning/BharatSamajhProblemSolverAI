@@ -93,6 +93,18 @@ export const userProfiles = pgTable("user_profiles", {
   referralCode: text("referral_code").notNull().unique(),
   referredBy: varchar("referred_by"), // The referral code of the person who referred them
   freeMonthsEarned: integer("free_months_earned").default(0).notNull(),
+  accessStatus: text("access_status").default('active').notNull(), // active, suspended (admin control)
+});
+
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description").default(""),
+  status: text("status").default("todo").notNull(), // todo, in_progress, done
+  priority: text("priority").default("medium").notNull(), // low, medium, high
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const discussionMessages = pgTable("discussion_messages", {
@@ -166,5 +178,17 @@ export type DiscussionMessage = typeof discussionMessages.$inferSelect;
 export type InsertDiscussionMessage = z.infer<typeof insertDiscussionMessageSchema>;
 
 export type UserProfile = typeof userProfiles.$inferSelect;
+
+export type Task = typeof tasks.$inferSelect;
+export const insertTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().default(""),
+  status: z.enum(["todo", "in_progress", "done"]).default("todo"),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+});
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+export const updateTaskSchema = insertTaskSchema.partial();
+export type UpdateTask = z.infer<typeof updateTaskSchema>;
 
 export type CreateProblemRequest = InsertProblem;

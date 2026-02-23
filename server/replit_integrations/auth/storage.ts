@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  listUsers(): Promise<User[]>;
 }
 
 class MemoryAuthStorage implements IAuthStorage {
@@ -28,6 +29,10 @@ class MemoryAuthStorage implements IAuthStorage {
     this.users.set(user.id, user);
     return user;
   }
+
+  async listUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
 }
 
 class DatabaseAuthStorage implements IAuthStorage {
@@ -49,6 +54,10 @@ class DatabaseAuthStorage implements IAuthStorage {
       })
       .returning();
     return user;
+  }
+
+  async listUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 }
 

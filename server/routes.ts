@@ -4,13 +4,13 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin, authStorage, setAdminCookie, clearAdminCookie, checkAdminCredentials } from "./replit_integrations/auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerAudioRoutes } from "./replit_integrations/audio";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { batchProcess } from "./replit_integrations/batch";
 import OpenAI from "openai";
-import { SUPPORTED_LANGUAGES, type SupportedLanguage, type ProblemCategory, type Attachment } from "@shared/schema";
+import { SUPPORTED_LANGUAGES, type SupportedLanguage, type ProblemCategory, type Attachment, insertTaskSchema, updateTaskSchema } from "@shared/schema";
 import { LOCALE_CONFIGS, type LocaleCode, getLocaleConfig } from "@shared/locales";
 import { searchWeb, buildSearchQuery, formatSearchResultsForPrompt } from "./utils/web-search";
 // sanitizeString removed from input storage — use output escaping instead (13.03)
@@ -21,6 +21,7 @@ import { unlink } from "fs/promises";
 import { randomUUID } from "crypto";
 import { scanUploadedFiles } from "./utils/file-scanner";
 import { scrubPii, scrubMessagesForAI } from "./utils/pii-guard";
+import { logger } from "./utils/logger";
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 if (!existsSync(UPLOADS_DIR)) {
@@ -249,7 +250,7 @@ async function getAISolution(
     const searchResult = await searchWeb(searchQuery);
     webContext = formatSearchResultsForPrompt(searchResult);
   } catch (err) {
-    console.error("[ai-solution] Web search failed, proceeding without:", err);
+    logger.warn({ err, source: "ai-solution" }, "Web search failed, proceeding without");
   }
 
   const userContent = webContext
@@ -353,6 +354,9 @@ export async function registerRoutes(
 
     const urls = [
       { loc: "/", priority: "1.0", changefreq: "weekly" },
+      { loc: "/privacy", priority: "0.8", changefreq: "monthly" },
+      { loc: "/help", priority: "0.8", changefreq: "monthly" },
+      { loc: "/resources", priority: "0.8", changefreq: "monthly" },
     ];
 
     const urlEntries = urls
@@ -379,11 +383,17 @@ ${urlEntries}
     res.send(sitemap);
   });
 
-  // Helper to ensure profile exists
+  // Helper to ensure profile exists and user has active access
   async function ensureProfile(userId: string) {
     let profile = await storage.getUserProfile(userId);
     if (!profile) {
       profile = await storage.createUserProfile(userId);
+    }
+    const accessStatus = (profile as { accessStatus?: string }).accessStatus ?? "active";
+    if (accessStatus === "suspended") {
+      const err = new Error("Account suspended");
+      (err as any).statusCode = 403;
+      throw err;
     }
     return profile;
   }
@@ -416,8 +426,19 @@ ${urlEntries}
 
   app.get(api.problems.list.path, isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
-    const problemsList = await storage.getProblems(userId);
-    res.status(200).json(problemsList);
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    const category = typeof req.query.category === "string" ? req.query.category : undefined;
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const page = typeof req.query.page === "string" ? parseInt(req.query.page, 10) : 1;
+    const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 12;
+    const result = await storage.getProblemsFiltered(userId, {
+      search,
+      category,
+      status,
+      page: isNaN(page) ? 1 : page,
+      limit: isNaN(limit) ? 12 : limit,
+    });
+    res.status(200).json(result);
   });
 
   app.post(api.problems.create.path, isAuthenticated, async (req: any, res) => {
@@ -493,6 +514,15 @@ ${urlEntries}
       const problem = await storage.getProblem(problemId);
       if (!problem) return res.status(404).json({ message: "Problem not found" });
       if (problem.userId !== userId) return res.status(401).json({ message: "Unauthorized" });
+
+      // 4.02: Subscription enforcement — block expired users from AI follow-up replies
+      const profile = await ensureProfile(userId);
+      const trialDays = (new Date().getTime() - new Date(profile.trialStartDate).getTime()) / (1000 * 3600 * 24);
+      const trialExpired = profile.subscriptionStatus === "trial" && trialDays > 30;
+      const hasFreeDays = profile.freeMonthsEarned > 0;
+      if (trialExpired && !hasFreeDays && profile.subscriptionStatus !== "active") {
+        return res.status(403).json({ message: "Trial expired. Please subscribe." });
+      }
 
       const content = (req.body.content || "").trim();
       const files = (req.files as Express.Multer.File[]) || [];
@@ -580,7 +610,7 @@ ${urlEntries}
   });
 
   // --- Privacy: Data Export (15.07) ---
-  app.get("/api/profile/export", isAuthenticated, async (req: any, res) => {
+  app.get("/api/v1/profile/export", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     try {
       const data = await storage.exportUserData(userId);
@@ -592,15 +622,15 @@ ${urlEntries}
   });
 
   // --- Privacy: Account Deletion (15.06) ---
-  app.delete("/api/profile", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/v1/profile", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     try {
       await storage.deleteUserData(userId);
       req.logout?.((err: any) => {
-        if (err) console.error("[privacy] Logout error during account deletion:", err);
+        if (err) (req.log ?? logger).error({ err }, "[privacy] Logout error during account deletion");
       });
       req.session?.destroy?.((err: any) => {
-        if (err) console.error("[privacy] Session destroy error:", err);
+        if (err) (req.log ?? logger).error({ err }, "[privacy] Session destroy error");
       });
       res.status(200).json({ message: "Account and all associated data have been permanently deleted." });
     } catch (err: any) {
@@ -610,8 +640,126 @@ ${urlEntries}
 
   app.use("/uploads", isAuthenticated, express.static(UPLOADS_DIR));
 
+  // Admin middleware: requires admin (via session cookie OR user in ADMIN_USER_IDS)
+  const requireAdmin = async (req: any, res: express.Response, next: express.NextFunction) => {
+    if (isAdmin(req)) return next();
+    return res.status(403).json({ message: "Forbidden: Admin access required" });
+  };
+
+  // Admin: login with username/password
+  app.post("/api/v1/admin/login", async (req: any, res) => {
+    const { username, password } = req.body || {};
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    if (!checkAdminCredentials(String(username).trim(), String(password))) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+    setAdminCookie(res);
+    res.status(200).json({ success: true });
+  });
+
+  // Admin: check if admin session is valid
+  app.get("/api/v1/admin/me", (req: any, res) => {
+    res.status(200).json({ authenticated: isAdmin(req) });
+  });
+
+  // Admin: logout (clear admin session)
+  app.post("/api/v1/admin/logout", (_req, res) => {
+    clearAdminCookie(res);
+    res.status(200).json({ success: true });
+  });
+
+  // Admin: stats
+  app.get("/api/v1/admin/stats", requireAdmin, async (_req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.status(200).json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: list users with profiles
+  app.get("/api/v1/admin/users", requireAdmin, async (_req, res) => {
+    try {
+      const [users, profiles] = await Promise.all([
+        authStorage.listUsers(),
+        storage.getAllProfiles(),
+      ]);
+      const profileMap = new Map(profiles.map((p) => [p.userId, p]));
+      const merged = users.map((u) => ({
+        ...u,
+        profile: profileMap.get(u.id) ?? null,
+      }));
+      res.status(200).json(merged);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: update user access (suspend / activate)
+  app.patch("/api/v1/admin/users/:userId/access", requireAdmin, async (req: any, res) => {
+    const { userId } = req.params;
+    const body = req.body;
+    const accessStatus = body?.accessStatus === "suspended" ? "suspended" : "active";
+    try {
+      const profile = await storage.updateUserAccess(userId, accessStatus);
+      if (!profile) return res.status(404).json({ message: "User profile not found" });
+      res.status(200).json(profile);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Tasks CRUD
+  app.get("/api/v1/tasks", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const list = await storage.getTasks(userId);
+    res.status(200).json(list);
+  });
+
+  app.post("/api/v1/tasks", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    try {
+      const input = insertTaskSchema.parse(req.body);
+      const task = await storage.createTask(userId, input);
+      res.status(201).json(task);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/v1/tasks/:id", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid task ID" });
+    try {
+      const input = updateTaskSchema.parse(req.body);
+      const task = await storage.updateTask(id, userId, input);
+      res.status(200).json(task);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err.message === "Task not found") return res.status(404).json({ message: err.message });
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/v1/tasks/:id", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid task ID" });
+    try {
+      await storage.deleteTask(id, userId);
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Batch problem-solving endpoint (processes multiple problems with AI in parallel)
-  app.post("/api/problems/batch", isAuthenticated, async (req: any, res) => {
+  app.post("/api/v1/problems/batch", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     try {
       const profile = await ensureProfile(userId);

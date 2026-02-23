@@ -1,24 +1,30 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import OpenAI from "openai";
 import { chatStorage } from "./storage";
+import { logger } from "../../utils/logger";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+const openai = apiKey
+  ? new OpenAI({
+      apiKey,
+      ...(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && {
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      }),
+    })
+  : null;
 
 export function registerChatRoutes(app: Express, auth: RequestHandler): void {
-  app.get("/api/conversations", auth, async (req: Request, res: Response) => {
+  app.get("/api/v1/conversations", auth, async (req: Request, res: Response) => {
     try {
       const conversations = await chatStorage.getAllConversations();
       res.json(conversations);
     } catch (error) {
-      console.error("Error fetching conversations:", error);
+      req.log?.error({ err: error }, "Error fetching conversations") ?? logger.error({ err: error }, "Error fetching conversations");
       res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });
 
-  app.get("/api/conversations/:id", auth, async (req: Request, res: Response) => {
+  app.get("/api/v1/conversations/:id", auth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id as string, 10);
       const conversation = await chatStorage.getConversation(id);
@@ -28,35 +34,41 @@ export function registerChatRoutes(app: Express, auth: RequestHandler): void {
       const messages = await chatStorage.getMessagesByConversation(id);
       res.json({ ...conversation, messages });
     } catch (error) {
-      console.error("Error fetching conversation:", error);
+      req.log?.error({ err: error }, "Error fetching conversation") ?? logger.error({ err: error }, "Error fetching conversation");
       res.status(500).json({ error: "Failed to fetch conversation" });
     }
   });
 
-  app.post("/api/conversations", auth, async (req: Request, res: Response) => {
+  app.post("/api/v1/conversations", auth, async (req: Request, res: Response) => {
     try {
       const { title } = req.body;
       const conversation = await chatStorage.createConversation(title || "New Chat");
       res.status(201).json(conversation);
     } catch (error) {
-      console.error("Error creating conversation:", error);
+      req.log?.error({ err: error }, "Error creating conversation") ?? logger.error({ err: error }, "Error creating conversation");
       res.status(500).json({ error: "Failed to create conversation" });
     }
   });
 
-  app.delete("/api/conversations/:id", auth, async (req: Request, res: Response) => {
+  app.delete("/api/v1/conversations/:id", auth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id as string, 10);
       await chatStorage.deleteConversation(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting conversation:", error);
+      req.log?.error({ err: error }, "Error deleting conversation") ?? logger.error({ err: error }, "Error deleting conversation");
       res.status(500).json({ error: "Failed to delete conversation" });
     }
   });
 
-  app.post("/api/conversations/:id/messages", auth, async (req: Request, res: Response) => {
+  app.post("/api/v1/conversations/:id/messages", auth, async (req: Request, res: Response) => {
     try {
+      if (!openai) {
+        return res.status(503).json({
+          error: "AI chat is not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY in .env",
+        });
+      }
+
       const conversationId = parseInt(req.params.id as string, 10);
       const { content } = req.body;
 
@@ -99,7 +111,7 @@ export function registerChatRoutes(app: Express, auth: RequestHandler): void {
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
     } catch (error) {
-      console.error("Error sending message:", error);
+      req.log?.error({ err: error }, "Error sending message") ?? logger.error({ err: error }, "Error sending message");
       // Check if headers already sent (SSE streaming started)
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ error: "Failed to send message" })}\n\n`);

@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import hpp from "hpp";
 import type { Express, Request, Response, NextFunction } from "express";
+import { logger } from "../utils/logger";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -70,7 +71,7 @@ export function setupSecurityMiddleware(app: Express): void {
     message: { message: "Too many login attempts. Please try again later." },
   }));
 
-  app.use("/api/problems", rateLimit({
+  app.use("/api/v1/problems", rateLimit({
     windowMs: 60 * 1000,
     limit: 10,
     standardHeaders: "draft-7",
@@ -129,8 +130,9 @@ function blockSuspiciousPayloads(req: Request, res: Response, next: NextFunction
     const bodyStr = JSON.stringify(body);
     for (const pattern of SUSPICIOUS_PATTERNS) {
       if (pattern.test(bodyStr)) {
-        console.warn(
-          `[security] Blocked suspicious payload from ${req.ip} on ${req.method} ${req.path}`
+        logger.warn(
+          { ip: req.ip, method: req.method, path: req.path },
+          "[security] Blocked suspicious payload"
         );
         res.status(400).json({ message: "Request blocked: potentially malicious content detected." });
         return;

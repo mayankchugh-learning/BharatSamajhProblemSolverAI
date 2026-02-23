@@ -1,12 +1,19 @@
 import express, { type Express, type Request, type Response, type RequestHandler } from "express";
 import { chatStorage } from "../chat/storage";
 import { openai, speechToText, ensureCompatibleFormat } from "./client";
+import { logger } from "../../utils/logger";
 
 const audioBodyParser = express.json({ limit: "50mb" });
 
 export function registerAudioRoutes(app: Express, auth: RequestHandler): void {
-  app.post("/api/voice/conversations/:id/messages", auth, audioBodyParser, async (req: Request, res: Response) => {
+  app.post("/api/v1/voice/conversations/:id/messages", auth, audioBodyParser, async (req: Request, res: Response) => {
     try {
+      if (!openai) {
+        return res.status(503).json({
+          error: "AI voice is not configured. Set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY in .env",
+        });
+      }
+
       const conversationId = parseInt(req.params.id as string, 10);
       const { audio, voice = "alloy" } = req.body;
 
@@ -62,7 +69,7 @@ export function registerAudioRoutes(app: Express, auth: RequestHandler): void {
       res.write(`data: ${JSON.stringify({ type: "done", transcript: assistantTranscript })}\n\n`);
       res.end();
     } catch (error) {
-      console.error("Error processing voice message:", error);
+      req.log?.error({ err: error }, "Error processing voice message") ?? logger.error({ err: error }, "Error processing voice message");
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to process voice message" })}\n\n`);
         res.end();

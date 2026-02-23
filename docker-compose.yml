@@ -51,7 +51,7 @@ services:
       target: builder
     environment:
       DATABASE_URL: postgresql://bharatsolve:${POSTGRES_PASSWORD:-changeme}@db:5432/bharatsolve
-    command: npx drizzle-kit push
+    command: npm run db:migrate
     depends_on:
       db:
         condition: service_healthy

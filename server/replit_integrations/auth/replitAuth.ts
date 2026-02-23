@@ -8,6 +8,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import MemoryStore from "memorystore";
 import { authStorage } from "./storage";
+import { logger } from "../../utils/logger";
 
 const isDevMode = process.env.NODE_ENV !== "production";
 const isUsingDatabase = !!process.env.DATABASE_URL;
@@ -29,9 +30,7 @@ export function getSession() {
   const secret = process.env.SESSION_SECRET;
 
   if (!secret && !isDevMode) {
-    console.error(
-      "[security] SESSION_SECRET is not set! This is a critical security risk in production."
-    );
+    logger.error("[security] SESSION_SECRET is not set! This is a critical security risk in production.");
     process.exit(1);
   }
 
@@ -190,7 +189,7 @@ export async function setupAuth(app: Express) {
   });
 
   if (isDevMode) {
-    console.log("[auth] Running in DEV mode — auto-login via /api/login");
+    logger.info("[auth] Running in DEV mode — auto-login via /api/login");
     await setupDevAuth(app);
   } else {
     await setupOidcAuth(app);

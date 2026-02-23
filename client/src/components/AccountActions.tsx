@@ -19,7 +19,7 @@ export function AccountActions() {
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/profile/export", { credentials: "include" });
+      const res = await fetch("/api/v1/profile/export", { credentials: "include" });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -80,7 +80,7 @@ function DeleteAccountDialog() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/profile", {
+      const res = await fetch("/api/v1/profile", {
         method: "DELETE",
         credentials: "include",
       });

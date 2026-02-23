@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { insertProblemSchema, insertDiscussionMessageSchema, insertFeedbackSchema, problems, userProfiles, discussionMessages, feedback } from './schema';
 
+/** API version prefix. Use /api/v1 for all API routes. Health and webhooks remain unversioned. */
+export const API_V1 = '/api/v1';
+
 export const errorSchemas = {
   validation: z.object({ message: z.string(), field: z.string().optional() }),
   notFound: z.object({ message: z.string() }),
@@ -12,15 +15,18 @@ export const api = {
   problems: {
     list: {
       method: 'GET' as const,
-      path: '/api/problems' as const,
+      path: `${API_V1}/problems` as const,
       responses: {
-        200: z.array(z.custom<typeof problems.$inferSelect>()),
+        200: z.object({
+          problems: z.array(z.custom<typeof problems.$inferSelect>()),
+          total: z.number(),
+        }),
         401: errorSchemas.unauthorized,
       },
     },
     create: {
       method: 'POST' as const,
-      path: '/api/problems' as const,
+      path: `${API_V1}/problems` as const,
       input: insertProblemSchema,
       responses: {
         201: z.custom<typeof problems.$inferSelect>(),
@@ -31,7 +37,7 @@ export const api = {
     },
     get: {
       method: 'GET' as const,
-      path: '/api/problems/:id' as const,
+      path: `${API_V1}/problems/:id` as const,
       responses: {
         200: z.custom<typeof problems.$inferSelect>(),
         401: errorSchemas.unauthorized,
@@ -40,7 +46,7 @@ export const api = {
     },
     listMessages: {
       method: 'GET' as const,
-      path: '/api/problems/:id/messages' as const,
+      path: `${API_V1}/problems/:id/messages` as const,
       responses: {
         200: z.array(z.custom<typeof discussionMessages.$inferSelect>()),
         401: errorSchemas.unauthorized,
@@ -49,7 +55,7 @@ export const api = {
     },
     sendMessage: {
       method: 'POST' as const,
-      path: '/api/problems/:id/messages' as const,
+      path: `${API_V1}/problems/:id/messages` as const,
       input: insertDiscussionMessageSchema,
       responses: {
         201: z.object({
@@ -65,7 +71,7 @@ export const api = {
   userProfiles: {
     get: {
       method: 'GET' as const,
-      path: '/api/profile' as const,
+      path: `${API_V1}/profile` as const,
       responses: {
         200: z.custom<typeof userProfiles.$inferSelect>(),
         401: errorSchemas.unauthorized,
@@ -73,7 +79,7 @@ export const api = {
     },
     submitReferral: {
       method: 'POST' as const,
-      path: '/api/profile/referral' as const,
+      path: `${API_V1}/profile/referral` as const,
       input: z.object({ referralCode: z.string() }),
       responses: {
         200: z.custom<typeof userProfiles.$inferSelect>(),
@@ -83,7 +89,7 @@ export const api = {
     },
     subscribe: {
       method: 'POST' as const,
-      path: '/api/profile/subscribe' as const,
+      path: `${API_V1}/profile/subscribe` as const,
       responses: {
         200: z.custom<typeof userProfiles.$inferSelect>(),
         401: errorSchemas.unauthorized,
@@ -93,7 +99,7 @@ export const api = {
   feedback: {
     submit: {
       method: 'POST' as const,
-      path: '/api/feedback' as const,
+      path: `${API_V1}/feedback` as const,
       input: insertFeedbackSchema,
       responses: {
         201: z.custom<typeof feedback.$inferSelect>(),

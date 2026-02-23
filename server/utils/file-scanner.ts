@@ -225,8 +225,9 @@ export async function scanUploadedFiles(
     if (!result.safe) {
       // Delete the dangerous file immediately
       try { await unlink(file.path); } catch { /* already cleaned up */ }
-      console.warn(
-        `[security] Blocked malicious upload: ${file.originalname} — ${result.reason}`
+      (await import("./logger")).logger.warn(
+        { filename: file.originalname, reason: result.reason },
+        "[security] Blocked malicious upload"
       );
       return { passed: false, failedFile: file.originalname, result };
     }
