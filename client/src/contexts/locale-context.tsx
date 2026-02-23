@@ -42,6 +42,15 @@ function resolveInitialLocale(): LocaleCode {
   return detectLocaleFromTimezone();
 }
 
+function setFavicon(flagEmoji: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${flagEmoji}</text></svg>`;
+  const dataUrl = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  const links = document.querySelectorAll('link[rel="icon"]');
+  links.forEach((link) => {
+    (link as HTMLLinkElement).href = dataUrl;
+  });
+}
+
 function applyTheme(config: LocaleConfig) {
   const root = document.documentElement;
   root.style.setProperty("--primary", config.theme.primary);
@@ -53,6 +62,8 @@ function applyTheme(config: LocaleConfig) {
 
   const themeColor = document.querySelector('meta[name="theme-color"]');
   if (themeColor) themeColor.setAttribute("content", config.theme.themeColor);
+
+  setFavicon(config.flagEmoji);
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
