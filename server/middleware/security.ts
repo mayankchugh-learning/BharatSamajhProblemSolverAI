@@ -35,12 +35,14 @@ export function setupSecurityMiddleware(app: Express): void {
   app.use(
     cors({
       origin: isProduction
-        ? (origin, callback) => {
+        ? (req, callback) => {
+            const origin = req.headers.origin;
             if (!origin) return callback(null, true);
             const allowedHost = process.env.ALLOWED_ORIGIN;
-            if (allowedHost && origin === allowedHost) {
-              return callback(null, true);
-            }
+            if (allowedHost && origin === allowedHost) return callback(null, true);
+            // When ALLOWED_ORIGIN not set, allow same-origin (origin matches request host)
+            const expectedOrigin = `${req.protocol}://${req.get("host") || ""}`;
+            if (origin === expectedOrigin) return callback(null, true);
             callback(new Error("Not allowed by CORS"));
           }
         : true,
