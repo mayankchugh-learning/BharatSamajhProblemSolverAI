@@ -125,6 +125,41 @@ export const feedback = pgTable("feedback", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const pageViews = pgTable("page_views", {
+  id: serial("id").primaryKey(),
+  path: text("path").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  country: varchar("country", { length: 2 }),
+  region: text("region"),
+  city: text("city"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PageView = typeof pageViews.$inferSelect;
+
+export const contactRequests = pgTable("contact_requests", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  status: text("status").default("pending").notNull(),
+  adminResponse: text("admin_response"),
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertContactRequestSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().email("Valid email is required"),
+  subject: z.string().min(1, "Subject is required").max(200),
+  message: z.string().min(10, "Message must be at least 10 characters").max(5000),
+});
+
+export type ContactRequest = typeof contactRequests.$inferSelect;
+export type InsertContactRequest = z.infer<typeof insertContactRequestSchema>;
+
 export const insertFeedbackSchema = createInsertSchema(feedback).pick({
   rating: true,
   category: true,

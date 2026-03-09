@@ -90,6 +90,7 @@ export default function Landing() {
             <a href="#pricing" className="text-sm font-medium hover:text-primary hidden md:block">Pricing</a>
             <a href="#faq" className="text-sm font-medium hover:text-primary hidden md:block">FAQ</a>
             <Link href="/help" className="text-sm font-medium hover:text-primary hidden md:block">Help</Link>
+            <Link href="/contact" className="text-sm font-medium hover:text-primary hidden md:block">Contact</Link>
             <Link href="/resources" className="text-sm font-medium hover:text-primary hidden md:block">Resources</Link>
             <a href="#privacy" className="text-sm font-medium hover:text-primary hidden md:block">Privacy</a>
             <ThemeToggle />
@@ -543,6 +544,7 @@ export default function Landing() {
                 <li><a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a></li>
                 <li><a href="#faq" className="hover:text-foreground transition-colors">FAQ</a></li>
                 <li><Link href="/help" className="hover:text-foreground transition-colors">Help</Link></li>
+                <li><Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link></li>
                 <li><Link href="/resources" className="hover:text-foreground transition-colors">Resources</Link></li>
                 <li><a href="/privacy" className="hover:text-foreground transition-colors flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Privacy Policy</a></li>
               </ul>

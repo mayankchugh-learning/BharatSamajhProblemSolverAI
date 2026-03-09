@@ -140,3 +140,18 @@ export async function sendSubscriptionCancelled(to: string, name: string | undef
   `;
   return send(to, "Your BharatSolve AI subscription has been cancelled", baseTemplate(content, "Subscription cancelled"));
 }
+
+export async function sendContactResponseEmail(
+  to: string,
+  name: string,
+  subject: string,
+  adminResponse: string
+): Promise<{ success: boolean; id?: string }> {
+  const content = `
+    <p>Namaste ${name},</p>
+    <p>Thank you for reaching out. Here is our response to your inquiry regarding "<strong>${subject}</strong>":</p>
+    <div style="background:#f3f4f6;padding:16px;border-radius:8px;margin:16px 0;white-space:pre-wrap;">${adminResponse.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    <p>If you have further questions, feel free to <a href="${BASE_URL}/contact">contact us</a> again.</p>
+  `;
+  return send(to, `Re: ${subject} - BharatSolve AI`, baseTemplate(content, "Response to your inquiry"));
+}

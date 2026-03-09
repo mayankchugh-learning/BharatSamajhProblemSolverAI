@@ -22,6 +22,7 @@ import {
   BookOpen,
   LogOut,
   User,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -91,6 +92,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </NavLink>
                 <NavLink href="/resources" icon={BookOpen}>
                   Resources
+                </NavLink>
+                <NavLink href="/contact" icon={Mail}>
+                  Contact
                 </NavLink>
               </SidebarMenu>
             </SidebarGroupContent>

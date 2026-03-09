@@ -1,5 +1,6 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
+import { usePageViewTracking } from "@/hooks/use-page-view-tracking";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,6 +17,7 @@ import Admin from "@/pages/Admin";
 import TasksList from "@/pages/TasksList";
 import Help from "@/pages/Help";
 import Resources from "@/pages/Resources";
+import Contact from "@/pages/Contact";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/contexts/locale-context";
@@ -24,6 +26,8 @@ import { Loader2 } from "lucide-react";
 function Router() {
   const { user, isLoading } = useAuth();
   const { config } = useLocale();
+  const [path] = useLocation();
+  usePageViewTracking(path);
 
   if (isLoading) {
     return (
@@ -44,6 +48,7 @@ function Router() {
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/help" component={Help} />
         <Route path="/resources" component={Resources} />
+        <Route path="/contact" component={Contact} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -56,6 +61,7 @@ function Router() {
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/help" component={Help} />
         <Route path="/resources" component={Resources} />
+        <Route path="/contact" component={Contact} />
         <Route path="/admin" component={Admin} />
         <Route path="/tasks" component={TasksList} />
         <Route path="/problems/:id">

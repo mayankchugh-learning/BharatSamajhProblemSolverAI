@@ -11,6 +11,7 @@ import {
   Shield,
   CreditCard,
   Share2,
+  Mail,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useDocumentHead } from "@/hooks/use-document-head";
@@ -105,6 +106,12 @@ export default function Help() {
                   <Button variant="ghost" className="w-full justify-start">
                     <Share2 className="w-4 h-4 mr-2" />
                     Referral Program
+                  </Button>
+                </Link>
+                <Link href="/contact">
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Mail className="w-4 h-4 mr-2" />
+                    Contact Us
                   </Button>
                 </Link>
                 <Link href="/">

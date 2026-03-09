@@ -25,7 +25,20 @@ import {
   ArrowLeft,
   BarChart3,
   LogOut,
+  Globe,
+  TrendingUp,
+  MapPin,
+  FileText,
+  Mail,
+  Reply,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "wouter";
 import { useDocumentHead } from "@/hooks/use-document-head";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
@@ -37,6 +50,20 @@ interface AdminStats {
   active: number;
   expired: number;
   feedback: number;
+}
+
+interface TrafficStats {
+  total: number;
+  byDay: { date: string; count: number }[];
+  topPages: { path: string; count: number }[];
+  byCountry: { country: string; count: number }[];
+  recentVisits: { path: string; country: string | null; region: string | null; city: string | null; createdAt: string }[];
+}
+
+async function fetchTrafficStats(days: number): Promise<TrafficStats> {
+  const res = await fetch(`/api/v1/admin/traffic?days=${days}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch traffic");
+  return res.json();
 }
 
 interface UserWithProfile {
@@ -72,6 +99,35 @@ async function updateUserAccess(userId: string, accessStatus: "active" | "suspen
     credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to update access");
+  return res.json();
+}
+
+interface ContactRequest {
+  id: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  adminResponse: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
+async function fetchContactRequests(): Promise<ContactRequest[]> {
+  const res = await fetch("/api/v1/admin/contact-requests", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch contact requests");
+  return res.json();
+}
+
+async function respondToContactRequest(id: number, adminResponse: string) {
+  const res = await fetch(`/api/v1/admin/contact-requests/${id}/respond`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminResponse }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to send response");
   return res.json();
 }
 
@@ -170,10 +226,35 @@ export default function Admin() {
     enabled: isAdmin,
   });
 
+  const [trafficDays, setTrafficDays] = useState(30);
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["/api/v1/admin/users"],
     queryFn: fetchAdminUsers,
     enabled: isAdmin,
+  });
+
+  const { data: traffic, isLoading: trafficLoading } = useQuery({
+    queryKey: ["/api/v1/admin/traffic", trafficDays],
+    queryFn: () => fetchTrafficStats(trafficDays),
+    enabled: isAdmin,
+  });
+
+  const { data: contactRequests, isLoading: contactLoading } = useQuery({
+    queryKey: ["/api/v1/admin/contact-requests"],
+    queryFn: fetchContactRequests,
+    enabled: isAdmin,
+  });
+
+  const [respondDialog, setRespondDialog] = useState<ContactRequest | null>(null);
+  const [responseText, setResponseText] = useState("");
+  const respondMutation = useMutation({
+    mutationFn: ({ id, adminResponse }: { id: number; adminResponse: string }) =>
+      respondToContactRequest(id, adminResponse),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/admin/contact-requests"] });
+      setRespondDialog(null);
+      setResponseText("");
+    },
   });
 
   const accessMutation = useMutation({
@@ -384,6 +465,279 @@ export default function Admin() {
             ) : (
               <div className="text-center py-12 text-muted-foreground">No users yet</div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Contact Requests */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Contact Requests
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              View and respond to user inquiries from the Contact Us form
+            </p>
+          </CardHeader>
+          <CardContent>
+            {contactLoading ? (
+              <div className="h-32 flex items-center justify-center text-muted-foreground">
+                Loading...
+              </div>
+            ) : (contactRequests ?? []).length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(contactRequests ?? []).map((cr) => (
+                    <TableRow key={cr.id}>
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(cr.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{cr.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{cr.email}</TableCell>
+                      <TableCell className="max-w-[180px] truncate">{cr.subject}</TableCell>
+                      <TableCell>
+                        <Badge variant={cr.status === "responded" ? "default" : "secondary"}>
+                          {cr.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRespondDialog(cr);
+                            setResponseText(cr.adminResponse ?? "");
+                          }}
+                        >
+                          <Reply className="w-4 h-4 mr-1" />
+                          {cr.status === "responded" ? "View / Edit" : "Respond"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                No contact requests yet
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Respond dialog */}
+        <Dialog open={!!respondDialog} onOpenChange={(open) => !open && setRespondDialog(null)}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {respondDialog?.name} — {respondDialog?.subject}
+              </DialogTitle>
+            </DialogHeader>
+            {respondDialog && (
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Email</Label>
+                  <p className="font-mono text-sm">{respondDialog.email}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Message</Label>
+                  <p className="text-sm mt-1 p-3 rounded-md bg-muted whitespace-pre-wrap">
+                    {respondDialog.message}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="admin-response">Your response</Label>
+                  <Textarea
+                    id="admin-response"
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Type your response here. The user will receive it via email."
+                    rows={5}
+                    className="mt-1 resize-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setRespondDialog(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={responseText.trim().length < 5 || respondMutation.isPending}
+                    onClick={() =>
+                      respondMutation.mutate({ id: respondDialog.id, adminResponse: responseText.trim() })
+                    }
+                  >
+                    {respondMutation.isPending ? "Sending..." : "Send response (email user)"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Traffic / Analytics */}
+        <Card className="mt-8">
+          <CardHeader>
+            <div className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="w-5 h-5" />
+                  Website Traffic
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Page views and visitor analytics. Location works when deployed (Vercel, Cloudflare, etc.) or accessed via public IP. Localhost shows Unknown.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="traffic-days" className="text-sm text-muted-foreground">Period</Label>
+                <select
+                  id="traffic-days"
+                  value={trafficDays}
+                  onChange={(e) => setTrafficDays(Number(e.target.value))}
+                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                >
+                  <option value={7}>Last 7 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={90}>Last 90 days</option>
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {trafficLoading ? (
+              <div className="h-48 flex items-center justify-center text-muted-foreground">
+                Loading traffic...
+              </div>
+            ) : traffic ? (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 rounded-lg border px-4 py-3">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="text-2xl font-bold">{(traffic.total ?? 0).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Total page views</p>
+                    </div>
+                  </div>
+                </div>
+
+                {(traffic.byCountry ?? []).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Traffic by location
+                    </h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Country</TableHead>
+                          <TableHead className="text-right">Views</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(traffic.byCountry ?? []).map((c) => (
+                          <TableRow key={c.country}>
+                            <TableCell>{c.country}</TableCell>
+                            <TableCell className="text-right">{c.count.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {(traffic.topPages ?? []).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Top pages
+                    </h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Path</TableHead>
+                          <TableHead className="text-right">Views</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {traffic.topPages.map((p) => (
+                          <TableRow key={p.path}>
+                            <TableCell className="font-mono text-sm">{p.path || "/"}</TableCell>
+                            <TableCell className="text-right">{p.count.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {(traffic.recentVisits ?? []).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Recent page views (path + location)</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Time</TableHead>
+                            <TableHead>Path</TableHead>
+                            <TableHead>Location</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(traffic.recentVisits ?? []).map((v, i) => (
+                            <TableRow key={`${v.path}-${v.createdAt}-${i}`}>
+                              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {new Date(v.createdAt).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{v.path}</TableCell>
+                              <TableCell className="text-sm">
+                                {[v.city, v.region, v.country].filter(Boolean).join(", ") || "—"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {traffic.byDay.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Views by day</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Views</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {[...(traffic.byDay ?? [])].reverse().map((d) => (
+                            <TableRow key={d.date}>
+                              <TableCell>{d.date}</TableCell>
+                              <TableCell className="text-right">{d.count.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {(traffic.total ?? 0) === 0 && (
+                  <p className="text-muted-foreground text-sm">No traffic data for this period yet.</p>
+                )}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </main>

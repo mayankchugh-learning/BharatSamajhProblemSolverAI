@@ -5,6 +5,8 @@ import {
   discussionMessages,
   feedback,
   tasks,
+  pageViews,
+  contactRequests,
   type Problem,
   type InsertProblem,
   type UserProfile,
@@ -14,9 +16,12 @@ import {
   type Task,
   type InsertTask,
   type UpdateTask,
+  type ContactRequest,
+  type InsertContactRequest,
 } from "@shared/schema";
-import { eq, desc, sql, and, or, ilike } from "drizzle-orm";
+import { eq, desc, sql, and, or, ilike, gte } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { lookupIp } from "./utils/geoip";
 
 export interface UserDataExport {
   profile: UserProfile | null;
@@ -65,6 +70,26 @@ export interface IStorage {
   getAdminStats(): Promise<{ users: number; problems: number; trial: number; active: number; expired: number; feedback: number }>;
   updateUserAccess(userId: string, accessStatus: "active" | "suspended"): Promise<UserProfile | null>;
   getAllProfiles(): Promise<UserProfile[]>;
+
+  // Traffic / Analytics
+  recordPageView(
+    path: string,
+    userId?: string | null,
+    ip?: string | null,
+    countryFromHeader?: string | null
+  ): Promise<void>;
+  getTrafficStats(days?: number): Promise<{
+    total: number;
+    byDay: { date: string; count: number }[];
+    topPages: { path: string; count: number }[];
+    byCountry: { country: string; count: number }[];
+    recentVisits: { path: string; country: string | null; region: string | null; city: string | null; createdAt: string }[];
+  }>;
+
+  // Contact requests
+  createContactRequest(data: InsertContactRequest, userId?: string | null): Promise<ContactRequest>;
+  getContactRequests(): Promise<ContactRequest[]>;
+  respondToContactRequest(id: number, adminResponse: string): Promise<ContactRequest | null>;
 }
 
 // ── In-Memory Storage (development / no PostgreSQL) ──
@@ -309,6 +334,119 @@ export class MemoryStorage implements IStorage {
   async getAllProfiles(): Promise<UserProfile[]> {
     return Array.from(this.profiles.values());
   }
+
+  private pageViewsList: { id: number; path: string; userId: string | null; country: string | null; region: string | null; city: string | null; createdAt: Date }[] = [];
+  private nextPageViewId = 1;
+
+  async recordPageView(
+    path: string,
+    userId?: string | null,
+    ip?: string | null,
+    countryFromHeader?: string | null
+  ): Promise<void> {
+    const geo = lookupIp(ip ?? undefined, countryFromHeader ?? undefined);
+    this.pageViewsList.push({
+      id: this.nextPageViewId++,
+      path: path || "/",
+      userId: userId ?? null,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      createdAt: new Date(),
+    });
+  }
+
+  async getTrafficStats(days = 30): Promise<{
+    total: number;
+    byDay: { date: string; count: number }[];
+    topPages: { path: string; count: number }[];
+    byCountry: { country: string; count: number }[];
+    recentVisits: { path: string; country: string | null; region: string | null; city: string | null; createdAt: string }[];
+  }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setHours(0, 0, 0, 0);
+
+    const recent = this.pageViewsList.filter((v) => v.createdAt >= cutoff);
+    const total = recent.length;
+
+    const byDayMap = new Map<string, number>();
+    for (const v of recent) {
+      const date = v.createdAt.toISOString().slice(0, 10);
+      byDayMap.set(date, (byDayMap.get(date) ?? 0) + 1);
+    }
+    const byDay = Array.from(byDayMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const pathCounts = new Map<string, number>();
+    for (const v of recent) {
+      const p = v.path || "/";
+      pathCounts.set(p, (pathCounts.get(p) ?? 0) + 1);
+    }
+    const topPages = Array.from(pathCounts.entries())
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const countryCounts = new Map<string, number>();
+    for (const v of recent) {
+      const c = v.country || "Unknown";
+      countryCounts.set(c, (countryCounts.get(c) ?? 0) + 1);
+    }
+    const byCountry = Array.from(countryCounts.entries())
+      .map(([country, count]) => ({ country, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    const recentVisits = [...recent]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 50)
+      .map((v) => ({
+        path: v.path || "/",
+        country: v.country,
+        region: v.region,
+        city: v.city,
+        createdAt: v.createdAt.toISOString(),
+      }));
+
+    return { total, byDay, topPages, byCountry, recentVisits };
+  }
+
+  private contactRequestsList: (ContactRequest & { createdAt: Date; respondedAt?: Date })[] = [];
+  private nextContactRequestId = 1;
+
+  async createContactRequest(data: InsertContactRequest, userId?: string | null): Promise<ContactRequest> {
+    const req: ContactRequest & { createdAt: Date; respondedAt?: Date } = {
+      id: this.nextContactRequestId++,
+      name: data.name,
+      email: data.email,
+      subject: data.subject,
+      message: data.message,
+      userId: userId ?? null,
+      status: "pending",
+      adminResponse: null,
+      respondedAt: undefined,
+      createdAt: new Date(),
+    } as ContactRequest & { createdAt: Date; respondedAt?: Date };
+    this.contactRequestsList.push(req);
+    return req;
+  }
+
+  async getContactRequests(): Promise<ContactRequest[]> {
+    return [...this.contactRequestsList].sort(
+      (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)
+    );
+  }
+
+  async respondToContactRequest(id: number, adminResponse: string): Promise<ContactRequest | null> {
+    const req = this.contactRequestsList.find((r) => r.id === id);
+    if (!req) return null;
+    (req as any).status = "responded";
+    (req as any).adminResponse = adminResponse;
+    (req as any).respondedAt = new Date();
+    return req;
+  }
 }
 
 // ── PostgreSQL Storage (production) ──
@@ -548,6 +686,118 @@ export class DatabaseStorage implements IStorage {
 
   async getAllProfiles(): Promise<UserProfile[]> {
     return await db.select().from(userProfiles).orderBy(desc(userProfiles.trialStartDate));
+  }
+
+  async recordPageView(
+    path: string,
+    userId?: string | null,
+    ip?: string | null,
+    countryFromHeader?: string | null
+  ): Promise<void> {
+    const geo = lookupIp(ip ?? undefined, countryFromHeader ?? undefined);
+    await db.insert(pageViews).values({
+      path: path || "/",
+      userId: userId ?? null,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+    });
+  }
+
+  async getTrafficStats(days = 30): Promise<{
+    total: number;
+    byDay: { date: string; count: number }[];
+    topPages: { path: string; count: number }[];
+    byCountry: { country: string; count: number }[];
+    recentVisits: { path: string; country: string | null; region: string | null; city: string | null; createdAt: string }[];
+  }> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setHours(0, 0, 0, 0);
+
+    const [totalResult, byDayRows, topPagesRows, byCountryRows, recentRows] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(pageViews)
+        .where(gte(pageViews.createdAt, cutoff)),
+      db.select({
+        date: sql<string>`date(${pageViews.createdAt})::text`,
+        count: sql<number>`count(*)::int`,
+      })
+        .from(pageViews)
+        .where(gte(pageViews.createdAt, cutoff))
+        .groupBy(sql`date(${pageViews.createdAt})`)
+        .orderBy(sql`date(${pageViews.createdAt})`),
+      db.select({
+        path: pageViews.path,
+        count: sql<number>`count(*)::int`,
+      })
+        .from(pageViews)
+        .where(gte(pageViews.createdAt, cutoff))
+        .groupBy(pageViews.path)
+        .orderBy(desc(sql`count(*)`))
+        .limit(10),
+      db.select({
+        country: sql<string>`coalesce(${pageViews.country}, 'Unknown')`,
+        count: sql<number>`count(*)::int`,
+      })
+        .from(pageViews)
+        .where(gte(pageViews.createdAt, cutoff))
+        .groupBy(pageViews.country)
+        .orderBy(desc(sql`count(*)`))
+        .limit(15),
+      db.select({
+        path: pageViews.path,
+        country: pageViews.country,
+        region: pageViews.region,
+        city: pageViews.city,
+        createdAt: pageViews.createdAt,
+      })
+        .from(pageViews)
+        .where(gte(pageViews.createdAt, cutoff))
+        .orderBy(desc(pageViews.createdAt))
+        .limit(50),
+    ]);
+
+    const total = totalResult[0]?.count ?? 0;
+    const byDay = byDayRows.map((r) => ({ date: r.date, count: r.count }));
+    const topPages = topPagesRows.map((r) => ({ path: r.path || "/", count: r.count }));
+    const byCountry = byCountryRows.map((r) => ({ country: r.country, count: r.count }));
+    const recentVisits = recentRows.map((r) => ({
+      path: r.path || "/",
+      country: r.country,
+      region: r.region,
+      city: r.city,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return { total, byDay, topPages, byCountry, recentVisits };
+  }
+
+  async createContactRequest(data: InsertContactRequest, userId?: string | null): Promise<ContactRequest> {
+    const [req] = await db
+      .insert(contactRequests)
+      .values({
+        name: data.name,
+        email: data.email,
+        subject: data.subject,
+        message: data.message,
+        userId: userId ?? null,
+      })
+      .returning();
+    return req;
+  }
+
+  async getContactRequests(): Promise<ContactRequest[]> {
+    return await db.select().from(contactRequests).orderBy(desc(contactRequests.createdAt));
+  }
+
+  async respondToContactRequest(id: number, adminResponse: string): Promise<ContactRequest | null> {
+    const [req] = await db
+      .update(contactRequests)
+      .set({ status: "responded", adminResponse, respondedAt: new Date() })
+      .where(eq(contactRequests.id, id))
+      .returning();
+    return req ?? null;
   }
 }
 

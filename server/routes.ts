@@ -10,7 +10,7 @@ import { registerAudioRoutes } from "./integrations/audio";
 import { registerImageRoutes } from "./integrations/image";
 import { batchProcess } from "./integrations/batch";
 import OpenAI from "openai";
-import { SUPPORTED_LANGUAGES, type SupportedLanguage, type ProblemCategory, type Attachment, insertTaskSchema, updateTaskSchema } from "@shared/schema";
+import { SUPPORTED_LANGUAGES, type SupportedLanguage, type ProblemCategory, type Attachment, insertTaskSchema, updateTaskSchema, insertContactRequestSchema } from "@shared/schema";
 import { LOCALE_CONFIGS, type LocaleCode, getLocaleConfig } from "@shared/locales";
 import { searchWeb, buildSearchQuery, formatSearchResultsForPrompt } from "./utils/web-search";
 // sanitizeString removed from input storage — use output escaping instead (13.03)
@@ -22,6 +22,8 @@ import { randomUUID } from "crypto";
 import { scanUploadedFiles } from "./utils/file-scanner";
 import { scrubPii, scrubMessagesForAI } from "./utils/pii-guard";
 import { logger } from "./utils/logger";
+import { getClientIp, getCountryFromHeaders } from "./utils/client-ip";
+import { sendContactResponseEmail } from "./utils/email";
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 if (!existsSync(UPLOADS_DIR)) {
@@ -357,6 +359,7 @@ export async function registerRoutes(
       { loc: "/privacy", priority: "0.8", changefreq: "monthly" },
       { loc: "/help", priority: "0.8", changefreq: "monthly" },
       { loc: "/resources", priority: "0.8", changefreq: "monthly" },
+      { loc: "/contact", priority: "0.8", changefreq: "monthly" },
     ];
 
     const urlEntries = urls
@@ -609,6 +612,21 @@ ${urlEntries}
     }
   });
 
+  // Contact form (public — no auth required)
+  app.post("/api/v1/contact", async (req: any, res) => {
+    try {
+      const input = insertContactRequestSchema.parse(req.body);
+      const userId = req.user?.claims?.sub ?? null;
+      const entry = await storage.createContactRequest(input, userId);
+      res.status(201).json(entry);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // --- Privacy: Data Export (15.07) ---
   app.get("/api/v1/profile/export", isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
@@ -693,6 +711,63 @@ ${urlEntries}
         profile: profileMap.get(u.id) ?? null,
       }));
       res.status(200).json(merged);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Track page view (public - no auth; optional userId if logged in)
+  app.post("/api/v1/track", async (req: any, res) => {
+    try {
+      const path = typeof req.body?.path === "string" ? req.body.path : "/";
+      const userId = req.user?.claims?.sub ?? null;
+      const ip = getClientIp(req);
+      const countryFromHeader = getCountryFromHeaders(req);
+      await storage.recordPageView(path, userId, ip, countryFromHeader);
+      res.status(204).send();
+    } catch {
+      res.status(204).send(); // Silent fail - don't break UX
+    }
+  });
+
+  // Admin: traffic / analytics
+  app.get("/api/v1/admin/traffic", requireAdmin, async (req: any, res) => {
+    try {
+      const days = parseInt(String(req.query.days || 30), 10);
+      const stats = await storage.getTrafficStats(isNaN(days) ? 30 : Math.min(90, Math.max(1, days)));
+      res.status(200).json(stats);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // Admin: contact requests
+  app.get("/api/v1/admin/contact-requests", requireAdmin, async (_req, res) => {
+    try {
+      const list = await storage.getContactRequests();
+      res.status(200).json(list);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/v1/admin/contact-requests/:id/respond", requireAdmin, async (req: any, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+    const adminResponse = typeof req.body?.adminResponse === "string" ? req.body.adminResponse.trim() : "";
+    if (!adminResponse || adminResponse.length < 5) {
+      return res.status(400).json({ message: "Response must be at least 5 characters" });
+    }
+    try {
+      const updated = await storage.respondToContactRequest(id, adminResponse);
+      if (!updated) return res.status(404).json({ message: "Contact request not found" });
+      await sendContactResponseEmail(
+        updated.email,
+        updated.name,
+        updated.subject,
+        adminResponse
+      );
+      res.status(200).json(updated);
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
